@@ -37,3 +37,21 @@ Thumbs.db
 *.njsproj
 *.sln
 *.sw?
+
+# Python & Django
+backend_all/venv/
+venv/
+.venv/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+*.sqlite3
+media/
+backend_all/media/
+private_storage/
+backend_all/private_storage/
+backend_all/pc_agent/spool/
+backend_all/pc_agent/*.sqlite3
+
+
