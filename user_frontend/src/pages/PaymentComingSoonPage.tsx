@@ -5,8 +5,8 @@ import {
   ShieldCheck,
   ArrowLeft,
   RotateCcw,
-  Server,
   CheckCircle2,
+  Banknote,
 } from 'lucide-react';
 import { usePrintDraft } from '../hooks/usePrintDraft';
 import { apiClient } from '../services/apiClient';
@@ -22,6 +22,8 @@ export const PaymentComingSoonPage: React.FC = () => {
     message: string;
   } | null>(null);
 
+  const [confirmedOrder, setConfirmedOrder] = useState<any | null>(null);
+
   const handleTestBackendSubmission = async () => {
     setIsSubmitting(true);
     setApiFeedback(null);
@@ -31,16 +33,22 @@ export const PaymentComingSoonPage: React.FC = () => {
         setApiFeedback({
           type: 'info',
           message:
-            'Phase 1 Frontend Mode: Django REST Framework API is not currently connected. Once VITE_API_BASE_URL is pointed to your active Django server, this action will submit the JSON order payload to the backend.',
+            'Backend API is not currently configured. Please ensure VITE_API_BASE_URL is set in your .env file.',
         });
         setIsSubmitting(false);
         return;
       }
 
-      const response = await apiClient.submitOrder(draft);
+      const response = await apiClient.submitOrder(draft, {
+        paymentMethod: 'cash_on_delivery',
+        customerName: 'Customer',
+        phone: '0300-0000000',
+        deliveryMethod: 'pickup',
+      });
+      setConfirmedOrder(response);
       setApiFeedback({
         type: 'success',
-        message: `Order successfully recorded by backend! Reference ID: ${response.orderNumber || response.orderId}`,
+        message: `Order successfully dispatched to printer ${response.targetPrinter ? `(${response.targetPrinter})` : ''}! Job Number: ${response.orderNumber || response.orderId}`,
       });
     } catch (err: unknown) {
       const error = err as { message?: string };
@@ -108,8 +116,34 @@ export const PaymentComingSoonPage: React.FC = () => {
             </div>
           </div>
 
+          {/* Confirmed Order Card */}
+          {confirmedOrder && (
+            <div className="bg-emerald-50 rounded-2xl p-6 border border-emerald-200 text-left mb-6 max-w-xl mx-auto">
+              <div className="flex items-center gap-2 text-emerald-800 font-bold text-sm mb-3">
+                <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                <span>Print Job Successfully Created in Backend!</span>
+              </div>
+              <div className="space-y-2 text-xs sm:text-sm">
+                <div className="flex justify-between text-slate-700">
+                  <span>Job Number:</span>
+                  <span className="font-mono font-bold text-slate-900">{confirmedOrder.orderNumber}</span>
+                </div>
+                <div className="flex justify-between text-slate-700">
+                  <span>Queue Status:</span>
+                  <span className="badge-blue font-semibold uppercase">{confirmedOrder.status}</span>
+                </div>
+                <div className="flex justify-between text-slate-700">
+                  <span>Server Calculated Price:</span>
+                  <span className="font-bold text-emerald-700">
+                    {confirmedOrder.currency} {confirmedOrder.estimatedPrice}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* API Backend Simulation Status */}
-          {apiFeedback && (
+          {apiFeedback && !confirmedOrder && (
             <div className="max-w-xl mx-auto mb-6 text-left">
               <Alert
                 type={apiFeedback.type}
@@ -130,13 +164,14 @@ export const PaymentComingSoonPage: React.FC = () => {
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <Button
               type="button"
-              variant="outline"
+              variant="primary"
               size="md"
-              icon={<Server className="w-4 h-4 text-slate-500" />}
+              className="bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold"
+              icon={<Banknote className="w-4 h-4 text-emerald-100" />}
               isLoading={isSubmitting}
               onClick={handleTestBackendSubmission}
             >
-              Test Backend Connection
+              Cash Payment (Print Now)
             </Button>
 
             <Link to="/review-order">

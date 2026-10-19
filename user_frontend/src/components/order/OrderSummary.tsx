@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Info, ArrowRight, ArrowLeft, Printer } from 'lucide-react';
+import { Info, ArrowRight, ArrowLeft, Printer, Banknote } from 'lucide-react';
 import { OverallOrderCalculation } from '../../utils/printCalculations';
 import { Button } from '../ui/Button';
 
@@ -8,12 +8,16 @@ export interface OrderSummaryProps {
   totals: OverallOrderCalculation;
   onProceed?: () => void;
   proceedDisabled?: boolean;
+  onCashPayment?: () => void;
+  isCashSubmitting?: boolean;
 }
 
 export const OrderSummary: React.FC<OrderSummaryProps> = ({
   totals,
   onProceed,
   proceedDisabled = false,
+  onCashPayment,
+  isCashSubmitting = false,
 }) => {
   return (
     <div className="card-base p-6 bg-white space-y-6 shadow-subtle border-slate-200">
@@ -54,18 +58,19 @@ export const OrderSummary: React.FC<OrderSummaryProps> = ({
       </div>
 
       {/* Action Buttons */}
-      <div className="space-y-2 pt-2">
-        {onProceed ? (
+      <div className="space-y-3 pt-2">
+        {onCashPayment ? (
           <Button
             type="button"
             variant="primary"
             size="lg"
-            className="w-full"
-            disabled={proceedDisabled}
-            onClick={onProceed}
-            icon={<ArrowRight className="w-4 h-4" />}
+            className="w-full bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold shadow-md hover:shadow-lg transition-all focus:ring-emerald-500 py-3 text-base flex items-center justify-center gap-2 group"
+            disabled={proceedDisabled || isCashSubmitting}
+            isLoading={isCashSubmitting}
+            onClick={onCashPayment}
+            icon={<Banknote className="w-5 h-5 text-emerald-100 group-hover:scale-110 transition-transform" />}
           >
-            Continue to Payment
+            {isCashSubmitting ? 'Submitting Order...' : 'Cash on Counter (Pay at Shop)'}
           </Button>
         ) : (
           <Link to="/payment-coming-soon" className="block w-full">
@@ -73,11 +78,38 @@ export const OrderSummary: React.FC<OrderSummaryProps> = ({
               type="button"
               variant="primary"
               size="lg"
-              className="w-full"
+              className="w-full bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold shadow-md hover:shadow-lg transition-all focus:ring-emerald-500 py-3 text-base flex items-center justify-center gap-2 group"
               disabled={proceedDisabled}
+              icon={<Banknote className="w-5 h-5 text-emerald-100 group-hover:scale-110 transition-transform" />}
+            >
+              Cash on Counter (Pay at Shop)
+            </Button>
+          </Link>
+        )}
+
+        {onProceed ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="lg"
+            className="w-full font-semibold border-slate-300 text-slate-700 hover:bg-slate-50 py-2.5"
+            disabled={proceedDisabled || isCashSubmitting}
+            onClick={onProceed}
+            icon={<ArrowRight className="w-4 h-4" />}
+          >
+            Continue Payment (Online)
+          </Button>
+        ) : (
+          <Link to="/payment-coming-soon" className="block w-full">
+            <Button
+              type="button"
+              variant="outline"
+              size="lg"
+              className="w-full font-semibold border-slate-300 text-slate-700 hover:bg-slate-50 py-2.5"
+              disabled={proceedDisabled || isCashSubmitting}
               icon={<ArrowRight className="w-4 h-4" />}
             >
-              Continue to Payment
+              Continue Payment (Online)
             </Button>
           </Link>
         )}
