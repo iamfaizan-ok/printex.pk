@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign In &bull; PrintX Admin Portal</title>
+    <link rel="stylesheet" href="assets/css/admin-base.css">
+    <link rel="stylesheet" href="assets/css/admin-login.css">
+</head>
+<body>
+    <div class="login-viewport">
+        <main class="login-card" role="main">
+            <header class="login-header">
+                <div class="login-logo">
+                    <span>Print<span class="login-logo-accent">X</span></span>
+                </div>
+                <div>
+                    <span class="login-badge">Admin Operations Portal</span>
+                </div>
+                <p class="login-subtitle">Sign in with authorized staff credentials to manage print orders</p>
+            </header>
+
+            <div id="login-alert" class="login-alert" role="alert" aria-live="assertive"></div>
+
+            <form id="admin-login-form" novalidate autocomplete="on">
+                <div class="form-group">
+                    <label for="admin-username" class="form-label">Username or Email</label>
+                    <input 
+                        type="text" 
+                        id="admin-username" 
+                        name="username" 
+                        class="form-control" 
+                        required 
+                        autocomplete="username" 
+                        placeholder="admin or staff@printx.pk"
+                        autofocus
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="admin-password" class="form-label">Password</label>
+                    <input 
+                        type="password" 
+                        id="admin-password" 
+                        name="password" 
+                        class="form-control" 
+                        required 
+                        autocomplete="current-password" 
+                        placeholder="••••••••••••"
+                    >
+                </div>
+
+                <button type="submit" id="login-submit-btn" class="btn btn-primary btn-login-submit">
+                    Sign In to Admin Dashboard
+                </button>
+            </form>
+
+            <footer class="login-footer">
+                <p>PrintX Document Services &bull; Secure Same-Origin Session</p>
+            </footer>
+        </main>
+    </div>
+
+    <!-- Modular Script Imports -->
+    <script src="assets/js/config.js"></script>
+    <script src="assets/js/notifications.js"></script>
+    <script src="assets/js/api-client.js"></script>
+    <script src="assets/js/auth.js"></script>
+
+    <script>
+        (function () {
+            'use strict';
+
+            window.PrintXAuth.redirectIfAuthenticated();
+
+            const form = document.getElementById('admin-login-form');
+            const usernameInput = document.getElementById('admin-username');
+            const passwordInput = document.getElementById('admin-password');
+            const submitBtn = document.getElementById('login-submit-btn');
+            const alertBox = document.getElementById('login-alert');
+
+            const params = new URLSearchParams(window.location.search);
+            if (params.get('expired')) {
+                showAlert('Your admin session has expired. Please sign in again.', 'info');
+            } else if (params.get('logged_out')) {
+                showAlert('You have been logged out securely.', 'info');
+            }
+
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                hideAlert();
+
+                const username = usernameInput.value.trim();
+                const password = passwordInput.value;
+
+                if (!username || !password) {
+                    showAlert('Please enter both your username/email and password.', 'error');
+                    return;
+                }
+
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<span class="spinner-sm"></span> Signing In...';
+
+                try {
+                    await window.PrintXAuth.login(username, password);
+                    window.location.href = 'all-order-prints.html';
+                } catch (error) {
+                    const msg = (error.data && error.data.message) || error.message || 'Invalid credentials or access denied.';
+                    showAlert(msg, 'error');
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = 'Sign In to Admin Dashboard';
+                }
+            });
+
+            function showAlert(msg, type) {
+                alertBox.textContent = msg;
+                alertBox.className = `login-alert login-alert-${type}`;
+                alertBox.style.display = 'block';
+            }
+
+            function hideAlert() {
+                alertBox.style.display = 'none';
+            }
+        })();
+    </script>
+</body>
+</html>

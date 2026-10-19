@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>All Order Prints &bull; PrintX Admin Operations</title>
+    <link rel="stylesheet" href="assets/css/admin-base.css">
+    <link rel="stylesheet" href="assets/css/all-order-prints.css">
+</head>
+<body class="admin-layout">
+    <!-- Top Navigation Bar -->
+    <header class="admin-navbar" role="banner">
+        <div class="brand-section">
+            <span class="brand-logo">Print<span class="brand-logo-accent">X</span></span>
+            <span class="brand-badge">Admin Operations</span>
+        </div>
+
+        <div class="user-nav-section">
+            <div class="admin-user-pill">
+                <span class="admin-user-avatar">&#9881;</span>
+                <span id="admin-user-display">Administrator</span>
+            </div>
+            <button type="button" id="admin-logout-btn" class="btn btn-outline-secondary btn-sm" title="Sign out of Admin Portal">
+                Sign Out
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="dashboard-container" role="main">
+        <!-- Page Title & Live Status Bar -->
+        <div class="page-header">
+            <div>
+                <h1 class="page-title">All Order Prints</h1>
+            </div>
+            <div class="page-header-actions">
+                <div class="live-indicator" title="Auto-polling active">
+                    <span class="live-dot"></span>
+                    <span>Live Updates</span>
+                </div>
+                <span id="last-updated-time" class="last-updated-text">Updating...</span>
+                <button type="button" id="manual-refresh-btn" class="btn btn-outline-secondary btn-sm" title="Refresh order list now">
+                    &#x21bb; Refresh
+                </button>
+            </div>
+        </div>
+
+        <!-- Metric Cards -->
+        <section class="stats-grid" aria-label="Order Statistics Summary">
+            <div class="stat-card">
+                <div class="stat-label">Total Orders</div>
+                <div class="stat-value" id="stat-total">-</div>
+            </div>
+            <div class="stat-card stat-card-cash">
+                <div class="stat-label">Awaiting Cash (Pay OK)</div>
+                <div class="stat-value" id="stat-cash-pending">-</div>
+            </div>
+            <div class="stat-card stat-card-queued">
+                <div class="stat-label">Queued</div>
+                <div class="stat-value" id="stat-queued">-</div>
+            </div>
+            <div class="stat-card stat-card-printing">
+                <div class="stat-label">Printing / Spooling</div>
+                <div class="stat-value" id="stat-printing">-</div>
+            </div>
+            <div class="stat-card stat-card-completed">
+                <div class="stat-label">Completed</div>
+                <div class="stat-value" id="stat-completed">-</div>
+            </div>
+            <div class="stat-card stat-card-blocked">
+                <div class="stat-label">Blocked</div>
+                <div class="stat-value" id="stat-blocked">-</div>
+            </div>
+        </section>
+
+        <!-- Search Bar and Filter Tabs -->
+        <div class="dashboard-toolbar">
+            <nav class="filter-tabs" aria-label="Order Filter Tabs">
+                <button type="button" class="filter-tab active" data-tab="all">All Orders</button>
+                <button type="button" class="filter-tab" data-tab="cash_pending">&#128181; Cash Pending</button>
+                <button type="button" class="filter-tab" data-tab="queued">&#9203; Queued</button>
+                <button type="button" class="filter-tab" data-tab="printing">&#128438; Printing</button>
+                <button type="button" class="filter-tab" data-tab="completed">&#10003; Completed</button>
+                <button type="button" class="filter-tab" data-tab="blocked">&#128683; Blocked</button>
+                <button type="button" class="filter-tab" data-tab="failed">&#9888; Failed</button>
+            </nav>
+
+            <div class="search-box">
+                <span class="search-icon">&#128269;</span>
+                <input 
+                    type="search" 
+                    id="order-search-input" 
+                    class="search-input" 
+                    placeholder="Search Order ID, filename..." 
+                    aria-label="Search orders"
+                >
+            </div>
+        </div>
+
+        <!-- Orders Table Card -->
+        <div class="table-card">
+            <div class="table-responsive">
+                <table class="orders-table" aria-label="Print Orders Table">
+                    <thead>
+                        <tr>
+                            <th scope="col" class="col-filename">Document Filename</th>
+                            <th scope="col" class="col-order-id">Order ID</th>
+                            <th scope="col" class="col-status">Print Status</th>
+                            <th scope="col" class="col-payment">Payment Status</th>
+                            <th scope="col" class="col-actions">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="orders-table-body">
+                        <!-- Populated dynamically via all-order-prints.js -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination Bar -->
+            <footer id="pagination-controls" class="pagination-container" aria-label="Table Pagination">
+                <!-- Populated dynamically -->
+            </footer>
+        </div>
+    </main>
+
+    <!-- Accessible Confirmation Modal -->
+    <div id="confirm-modal-overlay" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        <div class="modal-dialog">
+            <div class="modal-header">
+                <h2 id="modal-title" class="modal-title">Confirm Action</h2>
+            </div>
+            <div class="modal-body">
+                <p id="modal-message">Are you sure you want to proceed?</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" id="modal-cancel-btn" class="btn btn-outline-secondary">
+                    Cancel
+                </button>
+                <button type="button" id="modal-confirm-btn" class="btn btn-primary">
+                    Confirm
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modular Script Imports -->
+    <script src="assets/js/config.js"></script>
+    <script src="assets/js/notifications.js"></script>
+    <script src="assets/js/api-client.js"></script>
+    <script src="assets/js/auth.js"></script>
+    <script src="assets/js/order-actions.js"></script>
+    <script src="assets/js/all-order-prints.js"></script>
+</body>
+</html>
