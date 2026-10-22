@@ -52,6 +52,7 @@ Visit `http://localhost:3000` to run the application locally.
 ### 3. `admin_side` (Shop & Print Agent — Phase 3)
 - Shop operator order queue and printer management.
 - Desktop print agent for automated job spooling.
+- ALl so having the information about user.
 
 ---
 
