@@ -53,5 +53,5 @@ private_storage/
 backend_all/private_storage/
 backend_all/pc_agent/spool/
 backend_all/pc_agent/*.sqlite3
-
-
+backend_all/staticfiles/
+staticfiles/

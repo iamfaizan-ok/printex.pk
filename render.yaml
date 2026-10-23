@@ -1,0 +1,32 @@
+# ==============================================================================
+# PrintX (printex.pk) - Render Infrastructure as Code (render.yaml)
+# Connect your GitHub repository on https://render.com to deploy with 1 click
+# ==============================================================================
+
+services:
+  # ----------------------------------------------------------------------------
+  # 1. Django REST API + Admin Portal Backend Service
+  # ----------------------------------------------------------------------------
+  - type: web
+    name: printx-backend
+    runtime: python
+    region: frankfurt
+    plan: free
+    rootDir: backend_all
+    buildCommand: ./build.sh
+    startCommand: gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --threads 4
+    healthCheckPath: /api/v1/health/
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.8
+      - key: DJANGO_DEBUG
+        value: "False"
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      - key: CORS_ALLOW_ALL_ORIGINS
+        value: "True"
+      - key: DJANGO_ALLOWED_HOSTS
+        value: "*"
+      # For PostgreSQL (e.g. Neon.tech, Supabase, or Render DB), provide DATABASE_URL in Render Dashboard:
+      # - key: DATABASE_URL
+      #   sync: false

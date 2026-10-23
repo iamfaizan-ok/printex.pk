@@ -23,6 +23,36 @@ printex.pk/
 
 ---
 
+## ⚡ Quick Start (Run Locally)
+
+You can run both the Frontend and Backend concurrently with the single launcher script:
+
+```bash
+./start.sh
+```
+
+Or run individual services:
+
+```bash
+# Run only Backend (Django REST API + Admin Portal)
+./start.sh backend
+
+# Run only Frontend (Customer Portal)
+./start.sh frontend
+```
+
+### Local URLs & Credentials
+
+| Service | Local URL | Notes / Credentials |
+|---|---|---|
+| **Customer Web Portal** | [http://localhost:3000](http://localhost:3000) | Vite + React frontend |
+| **Admin Operations Portal** | [http://localhost:8000/admin-panel/login.html](http://localhost:8000/admin-panel/login.html) | `admin` / `admin123` |
+| **Interactive API Docs (Swagger)** | [http://localhost:8000/api/docs/](http://localhost:8000/api/docs/) | OpenAPI schema & test UI |
+| **Django Admin Site** | [http://localhost:8000/admin/](http://localhost:8000/admin/) | `admin` / `admin123` |
+| **API Health Check** | [http://localhost:8000/api/v1/health/](http://localhost:8000/api/v1/health/) | JSON health status |
+
+---
+
 ## 🚀 Module Overview
 
 ### 1. `user_frontend` (Customer Portal — Phase 1 Completed)
@@ -34,13 +64,13 @@ A high-performance, accessible, and responsive web application for customers.
 - **Privacy First**: Files are inspected and rendered entirely in the browser heap memory with automatic resource disposal.
 - **Quality Assurance**: 28 automated tests with 100% pass rate.
 
-#### Quick Start (user_frontend)
+#### Manual Frontend Start
 ```bash
 cd user_frontend
 npm install
 npm run dev
 ```
-Visit `http://localhost:3000` to run the application locally.
+Runs at `http://localhost:3000`.
 
 ---
 
@@ -52,7 +82,6 @@ Visit `http://localhost:3000` to run the application locally.
 ### 3. `admin_side` (Shop & Print Agent — Phase 3)
 - Shop operator order queue and printer management.
 - Desktop print agent for automated job spooling.
-- ALl so having the information about user.
 
 ---
 
