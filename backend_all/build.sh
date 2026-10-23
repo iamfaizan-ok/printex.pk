@@ -17,6 +17,9 @@ fi
 echo "🗄️ Running database migrations..."
 python manage.py migrate --noinput
 
+echo "👤 Setting up default admin user (admin / admin123)..."
+python manage.py setup_admin --username admin --password "${PRINTX_ADMIN_PASSWORD:-admin123}"
+
 echo "🎨 Collecting static files for WhiteNoise..."
 python manage.py collectstatic --noinput
 

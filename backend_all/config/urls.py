@@ -17,6 +17,9 @@ def admin_panel_view(request, path=''):
     return serve(request, path, document_root=str(settings.ADMIN_SIDE_DIR))
 
 urlpatterns = [
+    # Redirect root to admin panel login
+    path('', lambda request: HttpResponseRedirect('/admin-panel/login.html'), name='root-redirect'),
+
     path('admin/', admin.site.urls),
 
     # Admin Panel Static Frontend (admin_side)
