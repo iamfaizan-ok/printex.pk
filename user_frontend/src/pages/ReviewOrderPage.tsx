@@ -25,7 +25,7 @@ export const ReviewOrderPage: React.FC = () => {
 
     const interval = setInterval(async () => {
       try {
-        const res = await fetch(`http://localhost:8000/api/v1/print-jobs/${placedOrder.orderId}/status/`);
+        const res = await fetch(`${apiClient.getBaseUrl()}/print-jobs/${placedOrder.orderId}/status/`);
         if (res.ok) {
           const data = await res.json();
           const currentStatus = data.data?.status || data.status;
