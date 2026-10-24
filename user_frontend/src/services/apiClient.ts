@@ -73,9 +73,12 @@ export const apiClient = {
     const readyFiles = draft.files.filter((f) => f.processingStatus === 'ready' && f.file instanceof File);
     const paymentMethod = options.paymentMethod || 'cash_on_delivery';
 
+    const batchId = `BATCH-${Date.now().toString(36).toUpperCase()}`;
+    const totalBatchFiles = readyFiles.length;
+
     // If in-memory browser Files are available, submit multipart directly to /print-jobs/
     if (readyFiles.length > 0) {
-      const uploadPromises = readyFiles.map(async (fileItem) => {
+      const uploadPromises = readyFiles.map(async (fileItem, idx) => {
         const formData = new FormData();
         formData.append('file', fileItem.file as File);
         formData.append('customer_name', options.customerName || 'Online Customer');
@@ -84,7 +87,10 @@ export const apiClient = {
         formData.append('payment_method', paymentMethod);
         const isCash = paymentMethod === 'cash_on_delivery' || paymentMethod === 'cash';
         formData.append('auto_print', isCash ? 'false' : 'true');
-        formData.append('notes', `Payment Mode: ${paymentMethod.toUpperCase()}`);
+        formData.append(
+          'notes',
+          `Payment Mode: ${paymentMethod.toUpperCase()}${totalBatchFiles > 1 ? ` | Batch: ${batchId} (${idx + 1} of ${totalBatchFiles})` : ''}`
+        );
         formData.append('copies', fileItem.printSettings.copies.toString());
         formData.append('paper_size', fileItem.printSettings.paperSize);
         formData.append('colour_mode', fileItem.printSettings.colourMode);

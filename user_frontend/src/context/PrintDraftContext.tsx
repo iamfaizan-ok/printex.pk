@@ -65,6 +65,25 @@ function printDraftReducer(state: PrintDraft, action: PrintDraftAction): PrintDr
         updatedAt: new Date().toISOString(),
       };
 
+    case 'UPDATE_MULTIPLE_FILES_SETTINGS': {
+      const targetIdSet = new Set(action.payload.fileIds);
+      return {
+        ...state,
+        files: state.files.map((file) =>
+          targetIdSet.has(file.fileId)
+            ? {
+                ...file,
+                printSettings: {
+                  ...file.printSettings,
+                  ...action.payload.settings,
+                },
+              }
+            : file
+        ),
+        updatedAt: new Date().toISOString(),
+      };
+    }
+
     case 'REMOVE_FILE': {
       const fileToRemove = state.files.find((f) => f.fileId === action.payload.fileId);
       if (fileToRemove?.objectUrl) {
@@ -154,6 +173,7 @@ export interface PrintDraftContextValue {
   canProceedToReview: boolean;
   addRawFiles: (files: File[]) => Promise<void>;
   updateFileSettings: (fileId: string, settings: Partial<PrintSettings>) => void;
+  updateMultipleFilesSettings: (fileIds: string[], settings: Partial<PrintSettings>) => void;
   removeFile: (fileId: string) => void;
   reorderFiles: (startIndex: number, endIndex: number) => void;
   replaceRawFile: (fileId: string, newFile: File) => Promise<void>;
@@ -346,6 +366,13 @@ export const PrintDraftProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     dispatch({ type: 'UPDATE_FILE_SETTINGS', payload: { fileId, settings } });
   }, []);
 
+  const updateMultipleFilesSettings = useCallback(
+    (fileIds: string[], settings: Partial<PrintSettings>) => {
+      dispatch({ type: 'UPDATE_MULTIPLE_FILES_SETTINGS', payload: { fileIds, settings } });
+    },
+    []
+  );
+
   const removeFile = useCallback((fileId: string) => {
     dispatch({ type: 'REMOVE_FILE', payload: { fileId } });
   }, []);
@@ -398,6 +425,7 @@ export const PrintDraftProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       canProceedToReview,
       addRawFiles,
       updateFileSettings,
+      updateMultipleFilesSettings,
       removeFile,
       reorderFiles,
       replaceRawFile,
@@ -412,6 +440,7 @@ export const PrintDraftProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       canProceedToReview,
       addRawFiles,
       updateFileSettings,
+      updateMultipleFilesSettings,
       removeFile,
       reorderFiles,
       replaceRawFile,

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, CheckCircle2, ShieldCheck, Printer, RefreshCw } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, ShieldCheck, Printer, RefreshCw, User } from 'lucide-react';
 import { usePrintDraft } from '../hooks/usePrintDraft';
 import { OrderFileSummary } from '../components/order/OrderFileSummary';
 import { OrderSummary } from '../components/order/OrderSummary';
@@ -13,6 +13,8 @@ export const ReviewOrderPage: React.FC = () => {
   const navigate = useNavigate();
   const { draft, totals, canProceedToReview, clearDraft } = usePrintDraft();
   const [isCashSubmitting, setIsCashSubmitting] = useState(false);
+  const [customerName, setCustomerName] = useState('Customer');
+  const [customerPhone, setCustomerPhone] = useState('0300-1234567');
   const [placedOrder, setPlacedOrder] = useState<any | null>(null);
   const [liveStatus, setLiveStatus] = useState<string>('queued');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -48,8 +50,8 @@ export const ReviewOrderPage: React.FC = () => {
     try {
       const response = await apiClient.submitOrder(draft, {
         paymentMethod: 'cash_on_delivery',
-        customerName: 'Customer',
-        phone: '0300-0000000',
+        customerName: customerName.trim() || 'Customer',
+        phone: customerPhone.trim() || '0300-0000000',
         deliveryMethod: 'pickup',
       });
       setPlacedOrder(response);
@@ -114,8 +116,38 @@ export const ReviewOrderPage: React.FC = () => {
 
         {/* Two-Column Grid: Left = Document List, Right = Summary Card */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          {/* Left: Document List */}
+          {/* Left: Document List & Customer Info */}
           <div className="lg:col-span-8 space-y-4">
+            {/* Customer Details Input Card */}
+            <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-subtle space-y-3">
+              <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                <User className="w-4 h-4 text-blue-600" />
+                Customer / Student Details (For Print Shop Pickup)
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                <div>
+                  <label className="block text-slate-600 font-medium mb-1">Your Name / Student ID</label>
+                  <input
+                    type="text"
+                    value={customerName}
+                    onChange={(e) => setCustomerName(e.target.value)}
+                    placeholder="e.g. Ali Khan / CS-104"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-600 font-medium mb-1">Mobile / WhatsApp Number</label>
+                  <input
+                    type="text"
+                    value={customerPhone}
+                    onChange={(e) => setCustomerPhone(e.target.value)}
+                    placeholder="0300-1234567"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+            </div>
+
             <div className="flex items-center justify-between pb-2 border-b border-slate-200">
               <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider">
                 Documents in this Order ({validFiles.length})

@@ -15,6 +15,7 @@ export type PrintDraftAction =
   | { type: 'ADD_FILES'; payload: PrintFile[] }
   | { type: 'UPDATE_FILE'; payload: { fileId: string; updates: Partial<PrintFile> } }
   | { type: 'UPDATE_FILE_SETTINGS'; payload: { fileId: string; settings: Partial<PrintFile['printSettings']> } }
+  | { type: 'UPDATE_MULTIPLE_FILES_SETTINGS'; payload: { fileIds: string[]; settings: Partial<PrintFile['printSettings']> } }
   | { type: 'REMOVE_FILE'; payload: { fileId: string } }
   | { type: 'REORDER_FILES'; payload: { startIndex: number; endIndex: number } }
   | { type: 'REPLACE_FILE'; payload: { fileId: string; newFile: PrintFile } }

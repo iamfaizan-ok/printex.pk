@@ -483,3 +483,161 @@
         grid-template-columns: repeat(2, 1fr);
     }
 }
+
+/* ==========================================================================
+   Multi-PDF User Group & "See More" Accordion Styles
+   ========================================================================== */
+
+.order-group-header-row {
+    background: linear-gradient(90deg, rgba(37, 99, 235, 0.05) 0%, rgba(30, 41, 59, 0.6) 100%);
+    border-left: 3px solid #3b82f6;
+    transition: background-color 0.15s ease;
+}
+
+.order-group-header-row:hover {
+    background: linear-gradient(90deg, rgba(37, 99, 235, 0.09) 0%, rgba(30, 41, 59, 0.8) 100%);
+}
+
+.order-group-header-row.group-expanded {
+    border-bottom: 1px dashed rgba(59, 130, 246, 0.4);
+}
+
+.group-header-flex {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+/* "See More" Toggle Button with Arrow */
+.btn-see-more-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    background: linear-gradient(135deg, #1e40af 0%, #2563eb 100%);
+    color: #ffffff;
+    border: 1px solid rgba(147, 197, 253, 0.4);
+    border-radius: var(--radius-sm);
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 1px 3px rgba(37, 99, 235, 0.3);
+    transition: all 0.15s ease;
+    white-space: nowrap;
+}
+
+.btn-see-more-toggle:hover {
+    background: linear-gradient(135deg, #1d4ed8 0%, #3b82f6 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 3px 6px rgba(37, 99, 235, 0.4);
+}
+
+.btn-see-more-toggle.is-open {
+    background: #334155;
+    border-color: #475569;
+    color: #cbd5e1;
+}
+
+.see-more-arrow {
+    display: inline-block;
+    font-size: 10px;
+    transition: transform 0.2s ease;
+}
+
+.see-more-label {
+    letter-spacing: 0.01em;
+}
+
+.customer-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #e2e8f0;
+    background-color: rgba(255, 255, 255, 0.06);
+    padding: 3px 9px;
+    border-radius: var(--radius-full);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.group-summary-meta {
+    font-size: 11px;
+    color: #94a3b8;
+    margin-top: 4px;
+}
+
+.group-id-badge {
+    border-color: rgba(59, 130, 246, 0.4);
+}
+
+.badge-more-count {
+    display: inline-block;
+    margin-left: 6px;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: var(--radius-full);
+    background-color: rgba(59, 130, 246, 0.2);
+    color: #93c5fd;
+    border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+/* Sub-Row (Individual PDF inside expanded group) */
+.order-sub-row {
+    background-color: rgba(15, 23, 42, 0.55);
+    border-left: 3px solid rgba(59, 130, 246, 0.3);
+    transition: background-color 0.12s ease;
+}
+
+.order-sub-row:hover {
+    background-color: rgba(30, 41, 59, 0.7);
+}
+
+.col-sub-filename {
+    padding-left: 28px !important;
+}
+
+.sub-file-tree-box {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.tree-branch-symbol {
+    font-size: 15px;
+    color: #60a5fa;
+    line-height: 1;
+    user-select: none;
+}
+
+.sub-doc-icon {
+    font-size: 13px;
+    color: #94a3b8;
+}
+
+.sub-document-filename {
+    font-weight: 500;
+    color: #f1f5f9;
+}
+
+.sub-document-meta {
+    padding-left: 24px;
+    color: #64748b;
+}
+
+@keyframes fadeInRow {
+    from {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.animate-fade-in {
+    animation: fadeInRow 0.2s ease-out forwards;
+}

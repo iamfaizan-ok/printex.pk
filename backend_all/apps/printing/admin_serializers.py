@@ -60,6 +60,7 @@ class AdminPrintJobSummarySerializer(serializers.ModelSerializer):
             'blocked_at',
             'blocked_reason',
             'payment_approved_at',
+            'notes',
             # Action capability flags for UI rendering
             'can_block',
             'can_unblock',
