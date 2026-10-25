@@ -1,9 +1,9 @@
 import logging
+from django.utils import timezone
 from django.http import FileResponse, Http404
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
 from drf_spectacular.utils import extend_schema
 
 from apps.common.storage import private_storage
@@ -180,7 +180,6 @@ class AgentJobStatusUpdateView(AgentBaseView):
             if diagnostic:
                 latest_attempt.diagnostic_details = diagnostic
             if new_status in ['completed', 'failed', 'outcome_unknown']:
-                from django.utils import timezone
                 latest_attempt.finished_at = timezone.now()
             latest_attempt.save()
 

@@ -12,6 +12,14 @@ class PrintStation(models.Model):
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    shop = models.ForeignKey(
+        'shops.Shop',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='stations',
+        help_text="Shop facility this print station belongs to"
+    )
     name = models.CharField(max_length=120, help_text="e.g. Main Print Facility - Windows Station 1")
     station_code = models.CharField(max_length=60, unique=True, db_index=True)
     auth_token_hash = models.CharField(max_length=128, help_text="SHA-256 hashed agent secret token")
@@ -45,6 +53,14 @@ class PrintStation(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.station_code}) - {self.status}"
+
+    @property
+    def is_authenticated(self):
+        return True
+
+    @property
+    def is_anonymous(self):
+        return False
 
     @staticmethod
     def hash_token(raw_token: str) -> str:

@@ -222,8 +222,8 @@ export const ReviewOrderPage: React.FC = () => {
               {/* Order Snapshot Table */}
               <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200/80 text-left space-y-2.5 text-xs sm:text-sm">
                 <div className="flex justify-between items-center text-slate-600">
-                  <span>Job Number:</span>
-                  <span className="font-mono font-bold text-slate-900 text-base">{placedOrder.orderNumber}</span>
+                  <span>Order ID:</span>
+                  <span className="font-mono font-bold text-slate-900 text-base">{placedOrder.orderNumber ? (placedOrder.orderNumber.startsWith('ORD id') ? placedOrder.orderNumber : `ORD id ${placedOrder.orderNumber}`) : 'ORD id 101'}</span>
                 </div>
                 <div className="flex justify-between items-center text-slate-600">
                   <span>Payment Mode:</span>

@@ -1,8 +1,10 @@
+import os
+import re
+import time
 import hashlib
 from decimal import Decimal
 from typing import Dict, Any, Optional
-from django.db import transaction
-from django.utils import timezone
+from django.db import transaction, OperationalError
 from apps.common.validators import (
     validate_pdf_file,
     validate_print_settings,
@@ -11,7 +13,7 @@ from apps.common.validators import (
 from apps.common.storage import private_storage
 from apps.devices.models import PrintStation
 from apps.audit.services import record_audit_event
-from .models import PrintJob, PrintJobAttempt
+from .models import Order, PrintJob, PrintJobAttempt
 from .state_machine import transition_job_status
 
 
@@ -66,6 +68,184 @@ def calculate_server_price(
     }
 
 
+def create_order_with_files(
+    files_list: list,
+    settings_list: list,
+    customer_data: Dict[str, Any],
+    idempotency_key: Optional[str] = None,
+    client_ip: Optional[str] = None
+) -> Order:
+    """
+    Creates ONE Order record and attaches MULTIPLE uploaded PDF files (PrintJobs)
+    under that same Order ID, all within a single reliable database transaction.
+    """
+    for attempt in range(20):
+        try:
+            return _create_order_with_files_impl(
+                files_list=files_list,
+                settings_list=settings_list,
+                customer_data=customer_data,
+                idempotency_key=idempotency_key,
+                client_ip=client_ip
+            )
+        except OperationalError as err:
+            if "locked" in str(err).lower() and attempt < 19:
+                time.sleep(0.04 * (attempt + 1))
+                continue
+            raise
+
+
+def _create_order_with_files_impl(
+    files_list: list,
+    settings_list: list,
+    customer_data: Dict[str, Any],
+    idempotency_key: Optional[str] = None,
+    client_ip: Optional[str] = None
+) -> Order:
+    from apps.shops.models import Shop
+    from apps.shops.services import get_or_create_default_shop
+
+    delivery_method = customer_data.get('delivery_method', 'pickup')
+    payment_method = customer_data.get('payment_method', 'cash_on_delivery')
+    payment_status = 'cash_pending' if payment_method in ['cash_on_delivery', 'cash', 'cod', None] else 'unpaid'
+
+    # Resolve destination shop
+    shop_identifier = customer_data.get('shop_id') or customer_data.get('shop')
+    shop = None
+    if shop_identifier:
+        shop = Shop.objects.filter(shop_id=shop_identifier, is_active=True).first()
+        if not shop:
+            try:
+                shop = Shop.objects.filter(id=shop_identifier, is_active=True).first()
+            except Exception:
+                pass
+    if not shop:
+        shop = get_or_create_default_shop()
+
+    with transaction.atomic():
+        order = Order.create_with_unique_number(
+            shop=shop,
+            access_token=PrintJob.generate_access_token(),
+            customer_name=customer_data.get('full_name', 'Customer'),
+            customer_email=customer_data.get('email', ''),
+            customer_phone=customer_data.get('phone', '0300-0000000'),
+            delivery_method=delivery_method,
+            delivery_address=customer_data.get('shipping_address', ''),
+            notes=customer_data.get('notes', ''),
+            status='queued',
+            approval_status='awaiting_review',
+            payment_status=payment_status,
+        )
+
+        total_impressions_sum = 0
+        total_sheets_sum = 0
+        subtotal_sum = Decimal('0.00')
+
+        for idx, uploaded_file in enumerate(files_list):
+            file_settings = (
+                settings_list[idx]
+                if idx < len(settings_list) and isinstance(settings_list[idx], dict)
+                else {}
+            )
+
+            page_count, file_bytes = validate_pdf_file(uploaded_file)
+            file_sha256 = hashlib.sha256(file_bytes).hexdigest()
+
+            validated_settings = validate_print_settings(file_settings, total_pages=page_count)
+            selected_pages_count = validated_settings['selected_pages_count']
+            copies = validated_settings['copies']
+            sides = validated_settings['sides']
+            colour_mode = validated_settings['colour_mode']
+            paper_size = validated_settings['paper_size']
+
+            file_impressions = selected_pages_count * copies
+            if sides == 'double':
+                file_sheets = -(-selected_pages_count // 2) * copies
+            else:
+                file_sheets = selected_pages_count * copies
+
+            file_pricing = calculate_server_price(
+                total_impressions=file_impressions,
+                estimated_sheets=file_sheets,
+                colour_mode=colour_mode,
+                paper_size=paper_size,
+                delivery_method='pickup'
+            )
+
+            storage_key = private_storage.save_file(file_bytes, file_extension='.pdf')
+
+            raw_name = getattr(uploaded_file, 'name', f'document_{idx+1}.pdf')
+            clean_name = os.path.basename(str(raw_name)).replace('\\', '/').split('/')[-1]
+            clean_name = re.sub(r'[\r\n\t"\'<>]', '', clean_name).strip()[:180] or f'document_{idx+1}.pdf'
+
+            PrintJob.objects.create(
+                order=order,
+                shop=order.shop,
+                job_number=order.order_number,  # Same unique Order ID for all PDFs!
+                access_token=order.access_token,
+                customer_name=order.customer_name,
+                customer_email=order.customer_email,
+                customer_phone=order.customer_phone,
+                delivery_method=order.delivery_method,
+                delivery_address=order.delivery_address,
+                notes=order.notes,
+                original_filename=clean_name,
+                storage_key=storage_key,
+                file_size_bytes=len(file_bytes),
+                file_sha256=file_sha256,
+                page_count=page_count,
+                selected_pages_count=selected_pages_count,
+                paper_size=paper_size,
+                colour_mode=colour_mode,
+                orientation=validated_settings['orientation'],
+                sides=sides,
+                copies=copies,
+                page_range=validated_settings['page_range'],
+                total_impressions=file_impressions,
+                estimated_sheets=file_sheets,
+                subtotal=file_pricing['subtotal'],
+                delivery_fee=Decimal('0.00'),
+                tax=file_pricing['tax'],
+                total_amount=file_pricing['total_amount'],
+                currency='PKR',
+                status=order.status,
+                approval_status=order.approval_status,
+                payment_status=order.payment_status,
+            )
+
+            total_impressions_sum += file_impressions
+            total_sheets_sum += file_sheets
+            subtotal_sum += file_pricing['subtotal']
+
+        delivery_fee = PRICING_RATES['delivery'].get(delivery_method, Decimal('0.00'))
+        tax = (subtotal_sum * PRICING_RATES['tax_rate']).quantize(Decimal('0.01'))
+        total_amount = subtotal_sum + delivery_fee + tax
+
+        order.total_impressions = total_impressions_sum or 1
+        order.estimated_sheets = total_sheets_sum or 1
+        order.subtotal = subtotal_sum
+        order.delivery_fee = delivery_fee
+        order.tax = tax
+        order.total_amount = total_amount
+        order.save()
+
+        record_audit_event(
+            event_type='order_created',
+            actor_type='customer',
+            actor_identifier=order.customer_phone or order.customer_name,
+            job_id=str(order.id),
+            ip_address=client_ip,
+            metadata={
+                'order_number': order.order_number,
+                'files_count': len(files_list),
+                'impressions': total_impressions_sum,
+                'total_amount': str(total_amount),
+            }
+        )
+
+    return order
+
+
 def create_print_job_from_upload(
     uploaded_file,
     settings_data: Dict[str, Any],
@@ -74,102 +254,16 @@ def create_print_job_from_upload(
     client_ip: Optional[str] = None
 ) -> PrintJob:
     """
-    Full server-side job creation workflow:
-    1. Check idempotency.
-    2. Validate PDF signature, parse page count, check corruption/encryption.
-    3. Validate print settings (copies, range, duplex, color, paper).
-    4. Calculate server-side impressions, sheets, and authoritative price.
-    5. Save file in private storage with unguessable key.
-    6. Persist PrintJob atomically within database transaction.
-    7. Record security audit event.
+    Creates a single-file print job wrapped cleanly in an Order.
     """
-    # 1. Idempotency check
-    if idempotency_key:
-        existing = PrintJob.objects.filter(idempotency_key=idempotency_key).first()
-        if existing:
-            return existing
-
-    # 2. PDF validation
-    page_count, file_bytes = validate_pdf_file(uploaded_file)
-    file_sha256 = hashlib.sha256(file_bytes).hexdigest()
-
-    # 3. Settings validation
-    validated_settings = validate_print_settings(settings_data, total_pages=page_count)
-    selected_pages_count = validated_settings['selected_pages_count']
-    copies = validated_settings['copies']
-    sides = validated_settings['sides']
-    colour_mode = validated_settings['colour_mode']
-    paper_size = validated_settings['paper_size']
-
-    # Calculations
-    total_impressions = selected_pages_count * copies
-    if sides == 'double':
-        estimated_sheets = -(-selected_pages_count // 2) * copies  # ceiling division
-    else:
-        estimated_sheets = selected_pages_count * copies
-
-    delivery_method = customer_data.get('delivery_method', 'pickup')
-    pricing = calculate_server_price(
-        total_impressions=total_impressions,
-        estimated_sheets=estimated_sheets,
-        colour_mode=colour_mode,
-        paper_size=paper_size,
-        delivery_method=delivery_method
+    order = create_order_with_files(
+        files_list=[uploaded_file],
+        settings_list=[settings_data],
+        customer_data=customer_data,
+        idempotency_key=idempotency_key,
+        client_ip=client_ip
     )
-
-    # 4. Save into private document storage
-    storage_key = private_storage.save_file(file_bytes, file_extension='.pdf')
-
-    # 5. Persist inside transaction
-    with transaction.atomic():
-        job = PrintJob.objects.create(
-            job_number=PrintJob.generate_job_number(),
-            access_token=PrintJob.generate_access_token(),
-            idempotency_key=idempotency_key,
-            customer_name=customer_data.get('full_name', 'Customer'),
-            customer_email=customer_data.get('email', ''),
-            customer_phone=customer_data.get('phone', '0300-0000000'),
-            delivery_method=delivery_method,
-            delivery_address=customer_data.get('shipping_address', ''),
-            notes=customer_data.get('notes', ''),
-            original_filename=getattr(uploaded_file, 'name', 'document.pdf'),
-            storage_key=storage_key,
-            file_size_bytes=len(file_bytes),
-            file_sha256=file_sha256,
-            page_count=page_count,
-            selected_pages_count=selected_pages_count,
-            paper_size=paper_size,
-            colour_mode=colour_mode,
-            orientation=validated_settings['orientation'],
-            sides=sides,
-            copies=copies,
-            page_range=validated_settings['page_range'],
-            total_impressions=total_impressions,
-            estimated_sheets=estimated_sheets,
-            subtotal=pricing['subtotal'],
-            delivery_fee=pricing['delivery_fee'],
-            tax=pricing['tax'],
-            total_amount=pricing['total_amount'],
-            currency='PKR',
-            status='queued',
-            payment_status='cash_pending' if customer_data.get('payment_method') in ['cash_on_delivery', 'cash', 'cod', None] else 'unpaid'
-        )
-
-        record_audit_event(
-            event_type='job_created',
-            actor_type='customer',
-            actor_identifier=job.customer_phone or job.customer_name,
-            job_id=str(job.id),
-            ip_address=client_ip,
-            metadata={
-                'job_number': job.job_number,
-                'impressions': total_impressions,
-                'total_amount': str(pricing['total_amount']),
-                'storage_key': storage_key
-            }
-        )
-
-    return job
+    return order.files.first()
 
 
 def claim_next_job_for_station(station: PrintStation) -> Optional[PrintJob]:

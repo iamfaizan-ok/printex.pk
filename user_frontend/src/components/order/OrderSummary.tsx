@@ -64,6 +64,7 @@ export const OrderSummary: React.FC<OrderSummaryProps> = ({
             type="button"
             variant="primary"
             size="lg"
+            id="btn-pay-at-shop"
             className="w-full bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold shadow-md hover:shadow-lg transition-all focus:ring-emerald-500 py-3 text-base flex items-center justify-center gap-2 group"
             disabled={proceedDisabled || isCashSubmitting}
             isLoading={isCashSubmitting}

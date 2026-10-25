@@ -125,8 +125,8 @@ export const PaymentComingSoonPage: React.FC = () => {
               </div>
               <div className="space-y-2 text-xs sm:text-sm">
                 <div className="flex justify-between text-slate-700">
-                  <span>Job Number:</span>
-                  <span className="font-mono font-bold text-slate-900">{confirmedOrder.orderNumber}</span>
+                  <span>Order ID:</span>
+                  <span className="font-mono font-bold text-slate-900">{confirmedOrder.orderNumber ? (confirmedOrder.orderNumber.startsWith('ORD id') ? confirmedOrder.orderNumber : `ORD id ${confirmedOrder.orderNumber}`) : 'ORD id 101'}</span>
                 </div>
                 <div className="flex justify-between text-slate-700">
                   <span>Queue Status:</span>

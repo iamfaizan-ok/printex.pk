@@ -17,7 +17,7 @@ from apps.common.validators import (
 )
 from apps.devices.models import PrintStation
 from apps.audit.services import record_audit_event
-from .models import PrintJob
+from .models import Order, PrintJob
 from .serializers import (
     PrintJobCreateSerializer,
     PrintJobDetailsSerializer,
@@ -25,13 +25,11 @@ from .serializers import (
 )
 from .services import (
     create_print_job_from_upload,
+    create_order_with_files,
     calculate_server_price,
     PRICING_RATES,
 )
-from .printer_service import (
-    execute_immediate_print_for_job,
-    get_system_default_printer,
-)
+from .printer_service import execute_immediate_print_for_job
 from .state_machine import transition_job_status
 
 logger = logging.getLogger(__name__)
@@ -97,6 +95,7 @@ class PrintJobListCreateView(APIView):
     Returns HTTP 202 Accepted with job ID and status URL.
     """
     permission_classes = [AllowAny]
+    authentication_classes = []
     parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     @extend_schema(summary="Create a new print job", request=PrintJobCreateSerializer)
@@ -124,6 +123,7 @@ class PrintJobListCreateView(APIView):
             'shipping_address': data.get('delivery_address', ''),
             'notes': data.get('notes', ''),
             'payment_method': data.get('payment_method', 'cash_on_delivery'),
+            'shop_id': data.get('shop_id') or data.get('shop'),
         }
 
         idempotency_key = request.headers.get('Idempotency-Key')
@@ -203,20 +203,111 @@ class PrintJobDirectPrintView(APIView):
 class PrintJobDetailView(APIView):
     """
     GET /api/v1/print-jobs/{job_id}/
-    Returns details of the job. Verified by access_token or public ID.
+    GET /api/v1/orders/{order_id}/
+    GET /api/v1/orders/track/?number=ORD id 123
+    Returns full details of an order or print job.
     """
     permission_classes = [AllowAny]
 
-    @extend_schema(summary="Get print job details")
-    def get(self, request, job_id):
-        job = self._get_job(job_id)
+    @extend_schema(summary="Get print job or order tracking details")
+    def get(self, request, job_id=None):
+        lookup_id = job_id if job_id != 'track' else None
+        if not lookup_id:
+            lookup_id = (
+                request.query_params.get('number')
+                or request.query_params.get('orderNumber')
+                or request.query_params.get('trackingNumber')
+                or request.query_params.get('id')
+            )
+
+        if not lookup_id:
+            return Response(
+                {"success": False, "message": "Missing order or job identifier."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Check if matches an Order
+        order = None
+        try:
+            order = Order.objects.filter(id=lookup_id).first()
+        except Exception:
+            pass
+        if not order:
+            order = Order.objects.filter(order_number=lookup_id).first()
+
+        if order:
+            files_data = [
+                {
+                    "id": str(f.id),
+                    "originalFilename": f.original_filename,
+                    "pageCount": f.page_count,
+                    "copies": f.copies,
+                    "colourMode": f.colour_mode,
+                    "paperSize": f.paper_size,
+                    "sides": f.sides,
+                    "status": f.status,
+                    "totalImpressions": f.total_impressions,
+                    "estimatedSheets": f.estimated_sheets,
+                    "amount": float(f.total_amount),
+                }
+                for f in order.files.all()
+            ]
+            # Protect customer privacy against enumeration on public tracking queries
+            token_param = (
+                request.query_params.get('token')
+                or request.headers.get('X-Access-Token')
+                or ''
+            )
+            is_authorized = bool(
+                (request.user and request.user.is_authenticated and (request.user.is_staff or request.user.is_superuser))
+                or (order.access_token and token_param == order.access_token)
+            )
+
+            def mask_phone(phone: str) -> str:
+                if not phone:
+                    return ""
+                clean = re.sub(r'\D', '', phone)
+                if len(clean) >= 7:
+                    return f"{clean[:4]}****{clean[-3:]}"
+                return "***"
+
+            display_phone = order.customer_phone if is_authorized else mask_phone(order.customer_phone)
+            display_name = order.customer_name if is_authorized else (order.customer_name[:1] + "***" if order.customer_name else "Customer")
+
+            return Response({
+                "success": True,
+                "data": {
+                    "id": str(order.id),
+                    "orderNumber": order.order_number,
+                    "jobNumber": order.order_number,
+                    "status": order.status,
+                    "customerName": display_name,
+                    "customerPhone": display_phone,
+                    "deliveryMethod": order.delivery_method,
+                    "paymentStatus": order.payment_status,
+                    "approvalStatus": order.approval_status,
+                    "totalImpressions": order.total_impressions,
+                    "estimatedSheets": order.estimated_sheets,
+                    "subtotal": float(order.subtotal),
+                    "deliveryFee": float(order.delivery_fee),
+                    "tax": float(order.tax),
+                    "totalAmount": float(order.total_amount),
+                    "currency": order.currency,
+                    "createdAt": order.created_at.isoformat(),
+                    "updatedAt": order.updated_at.isoformat(),
+                    "totalPdfs": order.files.count(),
+                    "files": files_data,
+                }
+            })
+
+        job = self._get_job(lookup_id)
         serializer = PrintJobDetailsSerializer(job, context={'request': request})
         return Response({"success": True, "data": serializer.data})
 
     def _get_job(self, job_id) -> PrintJob:
         try:
             return PrintJob.objects.get(id=job_id)
-        except (PrintJob.DoesNotExist, ValueError):
+        except Exception:
             return PrintJob.objects.filter(job_number=job_id).first() or self._raise_404()
 
     def _raise_404(self):
@@ -295,6 +386,7 @@ class DocumentUploadView(APIView):
     Accepts multipart/form-data upload from user_frontend.
     """
     permission_classes = [AllowAny]
+    authentication_classes = []
     parser_classes = [MultiPartParser, FormParser]
 
     def post(self, request):
@@ -381,86 +473,285 @@ class PricingCalculateView(APIView):
 
 class OrderCreateView(APIView):
     """
+    POST /api/v1/orders/
     POST /api/v1/orders/create/
-    Direct order creation from frontend draft payload.
+    Direct order creation supporting multiple PDF files under a single Order ID.
     """
     permission_classes = [AllowAny]
+    authentication_classes = []
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     def post(self, request):
+        import json
+        from django.db import transaction
+        from decimal import Decimal
+
         data = request.data
-        customer = data.get('customer', {})
-        items = data.get('items', [])
-        delivery_method = data.get('deliveryMethod', 'pickup')
-
-        first_item = items[0] if items else {}
-        copies = int(first_item.get('copies', 1))
-        page_count = int(first_item.get('pageCount', 1))
-        sides = first_item.get('sides', 'single')
-        colour_mode = first_item.get('colourMode', 'bw')
-        paper_size = first_item.get('paperSize', 'A4')
-        page_range = first_item.get('pageRange', 'all')
-
-        total_impressions = page_count * copies
-        estimated_sheets = -(-page_count // 2) * copies if sides == 'double' else page_count * copies
-
-        pricing = calculate_server_price(
-            total_impressions=total_impressions,
-            estimated_sheets=estimated_sheets,
-            colour_mode=colour_mode,
-            paper_size=paper_size,
-            delivery_method=delivery_method
+        customer = data.get('customer', {}) if isinstance(data.get('customer'), dict) else {}
+        customer_name = (
+            customer.get('fullName')
+            or data.get('customer_name')
+            or data.get('customerName')
+            or 'Customer'
         )
-
-        job = PrintJob.objects.create(
-            job_number=PrintJob.generate_job_number(),
-            access_token=PrintJob.generate_access_token(),
-            customer_name=customer.get('fullName', 'Customer'),
-            customer_email=customer.get('email', ''),
-            customer_phone=customer.get('phone', '0300-0000000'),
-            delivery_method=delivery_method,
-            delivery_address=customer.get('shippingAddress', ''),
-            notes=customer.get('notes', ''),
-            original_filename=first_item.get('fileName', 'document.pdf'),
-            storage_key=first_item.get('documentId', 'docs/sample.pdf'),
-            file_size_bytes=int(first_item.get('fileSizeBytes', 1024)),
-            page_count=page_count,
-            selected_pages_count=page_count,
-            paper_size=paper_size,
-            colour_mode=colour_mode,
-            orientation=first_item.get('orientation', 'portrait'),
-            sides=sides,
-            copies=copies,
-            page_range=page_range,
-            total_impressions=total_impressions,
-            estimated_sheets=estimated_sheets,
-            subtotal=pricing['subtotal'],
-            delivery_fee=pricing['delivery_fee'],
-            tax=pricing['tax'],
-            total_amount=pricing['total_amount'],
-            status='queued'
+        customer_phone = (
+            customer.get('phone')
+            or data.get('customer_phone')
+            or data.get('customerPhone')
+            or '0300-0000000'
         )
+        customer_email = (
+            customer.get('email')
+            or data.get('customer_email')
+            or data.get('customerEmail')
+            or ''
+        )
+        delivery_method = (
+            data.get('delivery_method')
+            or data.get('deliveryMethod')
+            or 'pickup'
+        )
+        delivery_address = (
+            customer.get('shippingAddress')
+            or data.get('delivery_address')
+            or ''
+        )
+        notes = (
+            customer.get('notes')
+            or data.get('notes')
+            or ''
+        )
+        payment_method = data.get('payment_method', 'cash_on_delivery')
 
-        # If document already in private storage and cash/auto_print, trigger immediate print
-        if data.get('payment_method') in ['cash_on_delivery', 'cash', None] or data.get('auto_print'):
-            execute_immediate_print_for_job(job)
+        customer_data = {
+            'full_name': customer_name,
+            'email': customer_email,
+            'phone': customer_phone,
+            'delivery_method': delivery_method,
+            'shipping_address': delivery_address,
+            'notes': notes,
+            'payment_method': payment_method,
+            'shop_id': data.get('shop_id') or data.get('shop') or (customer.get('shop_id') if isinstance(customer, dict) else None),
+        }
+
+        # Case 1: Uploaded files via multipart/form-data
+        uploaded_files = request.FILES.getlist('files') or request.FILES.getlist('file')
+        if uploaded_files:
+            file_settings_raw = data.get('file_settings') or data.get('settings')
+            settings_list = []
+            if file_settings_raw:
+                if isinstance(file_settings_raw, str):
+                    try:
+                        settings_list = json.loads(file_settings_raw)
+                    except Exception:
+                        settings_list = []
+                elif isinstance(file_settings_raw, list):
+                    settings_list = file_settings_raw
+
+            order = create_order_with_files(
+                files_list=uploaded_files,
+                settings_list=settings_list,
+                customer_data=customer_data,
+                client_ip=request.META.get('REMOTE_ADDR')
+            )
+
+            # Auto print dispatch if enabled and cash/unblocked
+            auto_print = data.get('auto_print')
+            is_cash = payment_method in ['cash_on_delivery', 'cash', 'cod']
+            if auto_print not in ['false', False, '0', 0] and (is_cash or auto_print in ['true', True, '1', 1]):
+                for child_job in order.files.all():
+                    execute_immediate_print_for_job(child_job)
+
+            child_files_data = [
+                {
+                    "id": str(f.id),
+                    "fileName": f.original_filename,
+                    "pageCount": f.page_count,
+                    "copies": f.copies,
+                    "colourMode": f.colour_mode,
+                    "paperSize": f.paper_size,
+                    "sides": f.sides,
+                    "totalImpressions": f.total_impressions,
+                    "estimatedSheets": f.estimated_sheets,
+                    "amount": float(f.total_amount),
+                }
+                for f in order.files.all()
+            ]
+
+            return Response({
+                "orderId": str(order.id),
+                "orderNumber": order.order_number,
+                "status": order.status,
+                "createdAt": order.created_at.isoformat(),
+                "updatedAt": order.updated_at.isoformat(),
+                "customer": {
+                    "fullName": order.customer_name,
+                    "phone": order.customer_phone,
+                    "email": order.customer_email,
+                    "deliveryMethod": order.delivery_method,
+                },
+                "totalPdfs": order.files.count(),
+                "files": child_files_data,
+                "totalImpressions": order.total_impressions,
+                "totalSheets": order.estimated_sheets,
+                "pricing": {
+                    "currency": order.currency,
+                    "subtotal": float(order.subtotal),
+                    "deliveryFee": float(order.delivery_fee),
+                    "tax": float(order.tax),
+                    "totalAmount": float(order.total_amount),
+                },
+                "paymentStatus": order.payment_status,
+                "trackingNumber": order.order_number,
+            }, status=status.HTTP_201_CREATED)
+
+        # Case 2: JSON items fallback
+        items = data.get('items') or data.get('files') or []
+        payment_status = 'cash_pending' if payment_method in ['cash_on_delivery', 'cash', 'cod', None] else 'unpaid'
+
+        from apps.shops.models import Shop
+        from apps.shops.services import get_or_create_default_shop
+        shop_identifier = customer_data.get('shop_id')
+        shop = None
+        if shop_identifier:
+            shop = Shop.objects.filter(shop_id=shop_identifier, is_active=True).first()
+            if not shop:
+                try:
+                    shop = Shop.objects.filter(id=shop_identifier, is_active=True).first()
+                except Exception:
+                    pass
+        if not shop:
+            shop = get_or_create_default_shop()
+
+        with transaction.atomic():
+            order = Order.create_with_unique_number(
+                shop=shop,
+                access_token=PrintJob.generate_access_token(),
+                customer_name=customer_name,
+                customer_email=customer_email,
+                customer_phone=customer_phone,
+                delivery_method=delivery_method,
+                delivery_address=delivery_address,
+                notes=notes,
+                status='queued',
+                approval_status='awaiting_review',
+                payment_status=payment_status,
+            )
+
+            total_impressions_sum = 0
+            total_sheets_sum = 0
+            subtotal_sum = Decimal('0.00')
+
+            for idx, itm in enumerate(items):
+                item_settings = itm.get('settings', {}) if isinstance(itm.get('settings'), dict) else itm
+                copies = int(item_settings.get('copies', 1))
+                page_count = int(itm.get('pageCount', 1))
+                sides = item_settings.get('sides', 'single')
+                colour_mode = item_settings.get('colourMode') or item_settings.get('colour_mode') or 'bw'
+                paper_size = item_settings.get('paperSize') or item_settings.get('paper_size') or 'A4'
+                page_range = item_settings.get('pageRange') or item_settings.get('page_range') or 'all'
+                orientation = item_settings.get('orientation', 'portrait')
+
+                total_impressions = page_count * copies
+                estimated_sheets = -(-page_count // 2) * copies if sides == 'double' else page_count * copies
+
+                pricing = calculate_server_price(
+                    total_impressions=total_impressions,
+                    estimated_sheets=estimated_sheets,
+                    colour_mode=colour_mode,
+                    paper_size=paper_size,
+                    delivery_method='pickup'
+                )
+
+                orig_filename = itm.get('fileName') or itm.get('original_filename') or f'document_{idx+1}.pdf'
+                storage_key = itm.get('documentId') or itm.get('storage_key') or f'docs/file_{idx+1}.pdf'
+                file_size_bytes = int(itm.get('fileSizeBytes') or itm.get('file_size_bytes') or 1024)
+
+                PrintJob.objects.create(
+                    order=order,
+                    shop=order.shop,
+                    job_number=order.order_number,
+                    access_token=order.access_token,
+                    customer_name=customer_name,
+                    customer_email=customer_email,
+                    customer_phone=customer_phone,
+                    delivery_method=delivery_method,
+                    delivery_address=delivery_address,
+                    notes=notes,
+                    original_filename=orig_filename,
+                    storage_key=storage_key,
+                    file_size_bytes=file_size_bytes,
+                    page_count=page_count,
+                    selected_pages_count=page_count,
+                    paper_size=paper_size,
+                    colour_mode=colour_mode,
+                    orientation=orientation,
+                    sides=sides,
+                    copies=copies,
+                    page_range=page_range,
+                    total_impressions=total_impressions,
+                    estimated_sheets=estimated_sheets,
+                    subtotal=pricing['subtotal'],
+                    delivery_fee=Decimal('0.00'),
+                    tax=pricing['tax'],
+                    total_amount=pricing['total_amount'],
+                    currency='PKR',
+                    status='queued',
+                    payment_status=payment_status,
+                )
+
+                total_impressions_sum += total_impressions
+                total_sheets_sum += estimated_sheets
+                subtotal_sum += pricing['subtotal']
+
+            delivery_fee = PRICING_RATES['delivery'].get(delivery_method, Decimal('0.00'))
+            tax = (subtotal_sum * PRICING_RATES['tax_rate']).quantize(Decimal('0.01'))
+            total_amount = subtotal_sum + delivery_fee + tax
+
+            order.total_impressions = total_impressions_sum or 1
+            order.estimated_sheets = total_sheets_sum or 1
+            order.subtotal = subtotal_sum
+            order.delivery_fee = delivery_fee
+            order.tax = tax
+            order.total_amount = total_amount
+            order.save()
+
+        # If auto_print or cash
+        if payment_method in ['cash_on_delivery', 'cash', None] or data.get('auto_print'):
+            for child_job in order.files.all():
+                execute_immediate_print_for_job(child_job)
+
+        child_files_data = [
+            {
+                "id": str(f.id),
+                "fileName": f.original_filename,
+                "pageCount": f.page_count,
+                "copies": f.copies,
+                "colourMode": f.colour_mode,
+                "paperSize": f.paper_size,
+                "sides": f.sides,
+            }
+            for f in order.files.all()
+        ]
 
         return Response({
-            "orderId": str(job.id),
-            "orderNumber": job.job_number,
+            "orderId": str(order.id),
+            "orderNumber": order.order_number,
             "status": "pending_payment",
-            "createdAt": job.created_at.isoformat(),
-            "updatedAt": job.updated_at.isoformat(),
+            "createdAt": order.created_at.isoformat(),
+            "updatedAt": order.updated_at.isoformat(),
             "customer": customer,
-            "totalImpressions": total_impressions,
-            "totalSheets": estimated_sheets,
+            "totalPdfs": order.files.count(),
+            "files": child_files_data,
+            "totalImpressions": order.total_impressions,
+            "totalSheets": order.estimated_sheets,
             "pricing": {
                 "currency": "PKR",
-                "subtotal": float(pricing['subtotal']),
-                "deliveryFee": float(pricing['delivery_fee']),
-                "tax": float(pricing['tax']),
-                "totalAmount": float(pricing['total_amount']),
-                "items": []
+                "subtotal": float(order.subtotal),
+                "deliveryFee": float(order.delivery_fee),
+                "tax": float(order.tax),
+                "totalAmount": float(order.total_amount),
             },
-            "paymentStatus": "unpaid",
-            "trackingNumber": job.job_number,
+            "paymentStatus": order.payment_status,
+            "trackingNumber": order.order_number,
         }, status=status.HTTP_201_CREATED)

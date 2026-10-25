@@ -1,9 +1,10 @@
-# Admin & Print Agent Portal (Phase 3)
+# PrintX Operations & Admin Portal
 
-This directory is designated for the shop administration dashboard and desktop print agent.
+This directory houses the shop administration web dashboard for PrintX Document Services.
 
-### Scope:
-- Print shop operator web dashboard for managing incoming orders.
-- Native/Desktop Print Agent to interface with physical printers.
-- Real-time job status notifications and spooling.
-all OK
+### Key Capabilities:
+- **Real-Time Order Monitoring:** Live visibility of incoming customer print requests with auto-polling.
+- **Multi-PDF Grouping:** Consolidated order views with accordion inspection of individual documents.
+- **Operator Actions:** One-click cash approval (Pay OK), order blocking/unblocking, and direct spooling to print queue.
+- **Document Management:** Secure inline preview and on-demand download for authorized staff.
+- **Automated Lifecycle:** Server-side 30-minute cleanup for completed orders.

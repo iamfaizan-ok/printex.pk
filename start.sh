@@ -26,12 +26,31 @@ echo -e "${RESET}"
 
 MODE="${1:-all}"
 
+# Locate Python & Pip binaries (supports both Windows and Unix virtualenvs)
+if [ -f "$BACKEND_DIR/venv/Scripts/python.exe" ]; then
+    PYTHON_BIN="$BACKEND_DIR/venv/Scripts/python.exe"
+    PIP_BIN="$BACKEND_DIR/venv/Scripts/pip.exe"
+elif [ -f "$BACKEND_DIR/venv/bin/python" ]; then
+    PYTHON_BIN="$BACKEND_DIR/venv/bin/python"
+    PIP_BIN="$BACKEND_DIR/venv/bin/pip"
+else
+    PYTHON_BIN="python3"
+    PIP_BIN="pip3"
+fi
+
 # Ensure python venv exists
 if [ ! -d "$BACKEND_DIR/venv" ]; then
     echo -e "${YELLOW}Backend virtualenv not found. Creating one now...${RESET}"
     python3 -m venv "$BACKEND_DIR/venv"
-    "$BACKEND_DIR/venv/bin/pip" install --upgrade pip
-    "$BACKEND_DIR/venv/bin/pip" install -r "$BACKEND_DIR/requirements.txt"
+    if [ -f "$BACKEND_DIR/venv/Scripts/pip.exe" ]; then
+        PIP_BIN="$BACKEND_DIR/venv/Scripts/pip.exe"
+        PYTHON_BIN="$BACKEND_DIR/venv/Scripts/python.exe"
+    else
+        PIP_BIN="$BACKEND_DIR/venv/bin/pip"
+        PYTHON_BIN="$BACKEND_DIR/venv/bin/python"
+    fi
+    "$PIP_BIN" install --upgrade pip
+    "$PIP_BIN" install -r "$BACKEND_DIR/requirements.txt"
 fi
 
 # Ensure frontend node_modules exists
@@ -56,8 +75,10 @@ cleanup() {
 trap cleanup SIGINT SIGTERM EXIT
 
 start_backend() {
+    echo -e "${GREEN}Applying Database Migrations (PostgreSQL printx_db)...${RESET}"
+    (cd "$BACKEND_DIR" && "$PYTHON_BIN" manage.py migrate --noinput)
     echo -e "${GREEN}Starting Django Backend on http://127.0.0.1:8000 ...${RESET}"
-    (cd "$BACKEND_DIR" && ./venv/bin/python manage.py runserver 0.0.0.0:8000) &
+    (cd "$BACKEND_DIR" && "$PYTHON_BIN" manage.py runserver 0.0.0.0:8000) &
     BACKEND_PID=$!
 }
 
@@ -94,7 +115,7 @@ case "$MODE" in
         echo -e "   REST API Base:        ${CYAN}http://localhost:8000/api/v1/${RESET}"
         echo -e "   Swagger / OpenAPI:    ${CYAN}http://localhost:8000/api/docs/${RESET}"
         echo -e "   Django Admin:         ${CYAN}http://localhost:8000/admin/${RESET}"
-        echo -e "   Default Admin Login:  ${YELLOW}admin${RESET} / ${YELLOW}admin123${RESET}"
+        echo -e "   Shop Registration:    ${CYAN}http://localhost:8000/admin-panel/register-shop.html${RESET}"
         echo -e "${BOLD}${GREEN}========================================================${RESET}\n"
         echo -e "Press ${BOLD}Ctrl+C${RESET} anytime to stop all services.\n"
         

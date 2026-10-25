@@ -3,7 +3,7 @@
 This guide walks you through deploying **PrintX (printex.pk)** completely free using:
 - **Frontend (`user_frontend`)**: Hosted on **[Vercel](https://vercel.com)** (Global Edge CDN, auto-SSL, instant builds).
 - **Backend (`backend_all` + `admin_side`)**: Hosted on **[Render](https://render.com)** (Free Linux Web Service with Python 3.12, Gunicorn, WhiteNoise).
-- **Database (Optional)**: Free PostgreSQL on **[Neon.tech](https://neon.tech)** (free forever, 0.5 GB) or SQLite default.
+- **Database**: PostgreSQL on **[Neon.tech](https://neon.tech)** (free forever, 0.5 GB) or local/production PostgreSQL (`printx_db`).
 
 ---
 
@@ -14,7 +14,7 @@ graph LR
     User([Customer]) -->|HTTPS| Vercel[Vercel Edge CDN<br/>user_frontend<br/>React + Vite]
     Admin([Print Shop Operator]) -->|HTTPS| Render[Render Web Service<br/>backend_all + admin_side<br/>Django + WhiteNoise]
     Vercel -->|REST API Requests| Render
-    Render -->|PostgreSQL Protocol| DB[(Neon / Postgres / SQLite)]
+    Render -->|PostgreSQL Protocol| DB[(PostgreSQL: printx_db / Neon)]
 ```
 
 ---

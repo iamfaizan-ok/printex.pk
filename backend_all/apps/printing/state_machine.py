@@ -61,5 +61,21 @@ def transition_job_status(
         'error_code', 'error_message', 'updated_at'
     ])
 
+    # Keep parent Order status aligned with child files
+    if job.order:
+        try:
+            sibling_statuses = set(job.order.files.values_list('status', flat=True))
+            if sibling_statuses == {'completed'}:
+                job.order.status = 'completed'
+                job.order.save(update_fields=['status', 'updated_at'])
+            elif 'submitted_to_printer' in sibling_statuses:
+                job.order.status = 'submitted_to_printer'
+                job.order.save(update_fields=['status', 'updated_at'])
+            elif 'submitting_to_printer' in sibling_statuses:
+                job.order.status = 'submitting_to_printer'
+                job.order.save(update_fields=['status', 'updated_at'])
+        except Exception as e:
+            logger.debug(f"Failed to synchronize parent order status: {e}")
+
     logger.info(f"Job '{job.job_number}' transitioned from '{current_status}' to '{new_status}' by {actor}.")
     return job

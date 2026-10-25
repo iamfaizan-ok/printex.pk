@@ -10,6 +10,24 @@ export const Header: React.FC = () => {
 
   const totalFiles = draft.files.length;
   const isWorkflowActive = location.pathname !== '/' && totalFiles > 0;
+  const [stationId, setStationId] = React.useState<string | null>(() => {
+    try {
+      return localStorage.getItem('printx_shop_id') || null;
+    } catch {
+      return null;
+    }
+  });
+
+  React.useEffect(() => {
+    try {
+      const current = localStorage.getItem('printx_shop_id');
+      if (current !== stationId) {
+        setStationId(current);
+      }
+    } catch {
+      // Ignore in sandbox
+    }
+  }, [location]);
 
   return (
     <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-slate-200/80 transition-all">
@@ -31,6 +49,12 @@ export const Header: React.FC = () => {
 
           {/* Center / Right controls */}
           <div className="flex items-center gap-3">
+            {stationId && (
+              <div className="hidden md:flex items-center gap-1.5 px-3 py-1 bg-emerald-50 border border-emerald-200/80 text-emerald-800 rounded-full text-xs font-semibold shadow-xs">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span>Station: {stationId}</span>
+              </div>
+            )}
             {isWorkflowActive && (
               <div className="hidden sm:flex items-center gap-2 px-3 py-1 bg-slate-100 rounded-full text-xs font-medium text-slate-700">
                 <FileText className="w-3.5 h-3.5 text-blue-600" />

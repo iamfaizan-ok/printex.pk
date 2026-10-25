@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register Shop &bull; PrintX Admin Operations Portal</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Google Identity Services for optional Google Sign-Up -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <style>
+        :root {
+            --bg-body: #070a12;
+            --bg-card: rgba(17, 24, 39, 0.95);
+            --bg-input: #131c2e;
+            --border-card: rgba(255, 255, 255, 0.08);
+            --border-input: #2a374d;
+            --border-focus: #3b82f6;
+            --text-main: #f9fafb;
+            --text-muted: #94a3b8;
+            --text-sub: #64748b;
+            --accent: #2563eb;
+            --accent-hover: #1d4ed8;
+            --accent-glow: rgba(37, 99, 235, 0.35);
+            --danger: #ef4444;
+            --danger-bg: rgba(239, 68, 68, 0.12);
+            --success: #10b981;
+            --radius-md: 10px;
+            --radius-lg: 16px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-body);
+            background-image: 
+                radial-gradient(circle at 50% 15%, rgba(37, 99, 235, 0.12) 0%, transparent 50%),
+                radial-gradient(circle at 20% 85%, rgba(14, 165, 233, 0.08) 0%, transparent 40%);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+
+        .auth-container {
+            width: 100%;
+            max-width: 460px;
+        }
+
+        .auth-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-card);
+            border-radius: var(--radius-lg);
+            padding: 38px 36px;
+            box-shadow: 
+                0 25px 50px -12px rgba(0, 0, 0, 0.7),
+                0 0 0 1px rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(16px);
+        }
+
+        .auth-header {
+            text-align: center;
+            margin-bottom: 28px;
+        }
+
+        .brand-logo {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+            margin-bottom: 12px;
+        }
+
+        .brand-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #2563eb, #06b6d4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #ffffff;
+            box-shadow: 0 8px 16px -4px rgba(37, 99, 235, 0.4);
+        }
+
+        .brand-text {
+            font-size: 24px;
+            font-weight: 700;
+            color: #ffffff;
+            letter-spacing: -0.02em;
+        }
+
+        .brand-accent {
+            color: #3b82f6;
+        }
+
+        .badge-portal {
+            display: inline-block;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #38bdf8;
+            background: rgba(14, 165, 233, 0.12);
+            border: 1px solid rgba(14, 165, 233, 0.25);
+            padding: 3px 10px;
+            border-radius: 9999px;
+            margin-bottom: 8px;
+        }
+
+        .auth-title {
+            font-size: 20px;
+            font-weight: 700;
+            color: #ffffff;
+            margin-bottom: 6px;
+        }
+
+        .auth-subtitle {
+            font-size: 13px;
+            color: var(--text-muted);
+            line-height: 1.4;
+        }
+
+        .auth-alert {
+            display: none;
+            padding: 12px 14px;
+            border-radius: var(--radius-md);
+            font-size: 13px;
+            margin-bottom: 20px;
+            line-height: 1.4;
+        }
+
+        .auth-alert.error {
+            display: block;
+            background: var(--danger-bg);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #fca5a5;
+        }
+
+        .auth-alert.success {
+            display: block;
+            background: rgba(16, 185, 129, 0.12);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            color: #6ee7b7;
+        }
+
+        .form-group {
+            margin-bottom: 18px;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-main);
+            margin-bottom: 6px;
+        }
+
+        .form-hint {
+            font-size: 11px;
+            color: var(--text-sub);
+            margin-top: 4px;
+        }
+
+        .input-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .input-icon {
+            position: absolute;
+            left: 14px;
+            color: var(--text-sub);
+            pointer-events: none;
+            display: flex;
+            align-items: center;
+        }
+
+        .form-input {
+            width: 100%;
+            height: 44px;
+            background: var(--bg-input);
+            border: 1px solid var(--border-input);
+            border-radius: var(--radius-md);
+            color: var(--text-main);
+            font-size: 14px;
+            padding: 0 16px 0 42px;
+            outline: none;
+            transition: all 0.2s ease;
+        }
+
+        .form-input:focus {
+            border-color: var(--border-focus);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+            background: #172238;
+        }
+
+        .form-input::placeholder {
+            color: var(--text-sub);
+        }
+
+        .btn-toggle-pass {
+            position: absolute;
+            right: 12px;
+            background: transparent;
+            border: none;
+            color: var(--text-sub);
+            cursor: pointer;
+            padding: 6px;
+            display: flex;
+            align-items: center;
+            border-radius: 6px;
+            transition: color 0.15s ease;
+        }
+
+        .btn-toggle-pass:hover {
+            color: var(--text-main);
+        }
+
+        /* Submit Button */
+        .btn-primary {
+            width: 100%;
+            height: 48px;
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            border: none;
+            border-radius: var(--radius-md);
+            color: #ffffff;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            box-shadow: 0 4px 14px 0 var(--accent-glow);
+            transition: all 0.2s ease;
+            margin-top: 24px;
+        }
+
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #1d4ed8, #1e40af);
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px 0 rgba(37, 99, 235, 0.5);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Divider */
+        .auth-divider {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 22px 0 18px;
+        }
+
+        .auth-divider::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: 50%;
+            height: 1px;
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .auth-divider-text {
+            position: relative;
+            background: var(--bg-card);
+            padding: 0 14px;
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text-sub);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        /* Continue with Google button */
+        .btn-google {
+            width: 100%;
+            height: 44px;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: var(--radius-md);
+            color: #0f172a;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            transition: all 0.2s ease;
+        }
+
+        .btn-google:hover {
+            background: #f8fafc;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        /* Switch back to login link */
+        .auth-switch {
+            text-align: center;
+            margin-top: 22px;
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        .auth-switch a {
+            color: #60a5fa;
+            font-weight: 600;
+            text-decoration: none;
+            margin-left: 4px;
+        }
+
+        .auth-switch a:hover {
+            text-decoration: underline;
+            color: #93c5fd;
+        }
+
+        .auth-footer {
+            text-align: center;
+            margin-top: 22px;
+            font-size: 11px;
+            color: var(--text-sub);
+        }
+    </style>
+</head>
+<body>
+    <div class="auth-container">
+        <main class="auth-card" role="main">
+            <!-- Header -->
+            <header class="auth-header">
+                <a href="login.html" class="brand-logo">
+                    <div class="brand-icon">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="6 9 6 2 18 2 18 9"></polyline>
+                            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+                            <rect x="6" y="14" width="12" height="8"></rect>
+                        </svg>
+                    </div>
+                    <span class="brand-text">Print<span class="brand-accent">X</span></span>
+                </a>
+                <div>
+                    <span class="badge-portal">Shop Onboarding</span>
+                </div>
+                <h1 class="auth-title">Register Your Print Shop</h1>
+                <p class="auth-subtitle">Set up admin credentials. A unique Shop ID & QR code will be generated automatically in the database.</p>
+            </header>
+
+            <!-- Alert Box -->
+            <div id="signup-alert" class="auth-alert" role="alert" aria-live="assertive"></div>
+
+            <!-- Registration Form -->
+            <form id="register-shop-form" novalidate autocomplete="on">
+                <!-- Shop Name (Optional / Auto) -->
+                <div class="form-group">
+                    <label for="shop-name" class="form-label">Shop Name</label>
+                    <div class="input-wrapper">
+                        <span class="input-icon">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                                <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                            </svg>
+                        </span>
+                        <input 
+                            type="text" 
+                            id="shop-name" 
+                            name="shop_name" 
+                            class="form-input" 
+                            placeholder="e.g. Campus Central Prints"
+                            autofocus
+                        >
+                    </div>
+                    <p class="form-hint">Unique Shop ID & counter QR will be assigned to this name.</p>
+                </div>
+
+                <!-- Email -->
+                <div class="form-group">
+                    <label for="reg-email" class="form-label">Email Address <span style="color:#ef4444;">*</span></label>
+                    <div class="input-wrapper">
+                        <span class="input-icon">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                                <polyline points="22,6 12,13 2,6"></polyline>
+                            </svg>
+                        </span>
+                        <input 
+                            type="email" 
+                            id="reg-email" 
+                            name="email" 
+                            class="form-input" 
+                            required 
+                            placeholder="admin@printshop.pk"
+                        >
+                    </div>
+                </div>
+
+                <!-- Password -->
+                <div class="form-group">
+                    <label for="reg-password" class="form-label">Password <span style="color:#ef4444;">*</span></label>
+                    <div class="input-wrapper">
+                        <span class="input-icon">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                            </svg>
+                        </span>
+                        <input 
+                            type="password" 
+                            id="reg-password" 
+                            name="password" 
+                            class="form-input" 
+                            required 
+                            autocomplete="new-password" 
+                            placeholder="Min. 8 characters"
+                        >
+                        <button type="button" id="toggle-reg-pass" class="btn-toggle-pass" title="Toggle password visibility">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                <circle cx="12" cy="12" r="3"></circle>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Re-write Password -->
+                <div class="form-group">
+                    <label for="reg-re-password" class="form-label">Re-write Password <span style="color:#ef4444;">*</span></label>
+                    <div class="input-wrapper">
+                        <span class="input-icon">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 2l-2 2m-14 14l-2 2m16-16l-2-2-6 6-6-6-2 2 6 6-6 6 2 2 6-6 6 6 2-2-6-6 6-6z" opacity="0.3"></path>
+                                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                            </svg>
+                        </span>
+                        <input 
+                            type="password" 
+                            id="reg-re-password" 
+                            name="re_password" 
+                            class="form-input" 
+                            required 
+                            autocomplete="new-password" 
+                            placeholder="Confirm your password"
+                        >
+                        <button type="button" id="toggle-reg-re-pass" class="btn-toggle-pass" title="Toggle confirm password visibility">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                <circle cx="12" cy="12" r="3"></circle>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Submit Button -->
+                <button type="submit" id="reg-submit-btn" class="btn-primary">
+                    <span>Register Shop & Generate QR Code</span>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                        <polyline points="12 5 19 12 12 19"></polyline>
+                    </svg>
+                </button>
+            </form>
+
+            <!-- Divider -->
+            <div class="auth-divider">
+                <span class="auth-divider-text">or continue with</span>
+            </div>
+
+            <!-- Continue with Google Option -->
+            <button type="button" id="btn-google-signup" class="btn-google">
+                <svg width="18" height="18" viewBox="0 0 18 18">
+                    <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.616z"/>
+                    <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/>
+                    <path fill="#FBBC05" d="M3.964 10.707c-.18-.54-.282-1.117-.282-1.707s.102-1.167.282-1.707V4.961H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.039l3.007-2.332z"/>
+                    <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.961L3.964 7.293C4.672 5.166 6.656 3.58 9 3.58z"/>
+                </svg>
+                <span>Continue with Google</span>
+            </button>
+
+            <!-- Bottom Back to Sign In Link -->
+            <div class="auth-switch">
+                Already have an account? <a href="login.html">Sign In to Dashboard</a>
+            </div>
+
+            <!-- Footer -->
+            <footer class="auth-footer">
+                Automated multi-tenant print station provisioning &bull; PrintX Enterprise
+            </footer>
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="assets/js/config.js"></script>
+    <script src="assets/js/api-client.js"></script>
+    <script src="assets/js/auth.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const form = document.getElementById('register-shop-form');
+            const alertBox = document.getElementById('signup-alert');
+            const submitBtn = document.getElementById('reg-submit-btn');
+
+            const passInput = document.getElementById('reg-password');
+            const rePassInput = document.getElementById('reg-re-password');
+            const togglePassBtn = document.getElementById('toggle-reg-pass');
+            const toggleRePassBtn = document.getElementById('toggle-reg-re-pass');
+
+            // Toggle show/hide password helpers
+            function setupToggle(btn, input) {
+                btn.addEventListener('click', function () {
+                    const isPass = input.getAttribute('type') === 'password';
+                    input.setAttribute('type', isPass ? 'text' : 'password');
+                });
+            }
+            setupToggle(togglePassBtn, passInput);
+            setupToggle(toggleRePassBtn, rePassInput);
+
+            function showAlert(msg, isError) {
+                alertBox.textContent = msg;
+                alertBox.className = 'auth-alert ' + (isError ? 'error' : 'success');
+            }
+
+            // Google OAuth Sign Up
+            const googleBtn = document.getElementById('btn-google-signup');
+            googleBtn.addEventListener('click', function () {
+                if (window.google && window.google.accounts && window.google.accounts.id) {
+                    window.google.accounts.id.initialize({
+                        client_id: 'your-client-id.apps.googleusercontent.com',
+                        callback: async function (response) {
+                            try {
+                                const shopName = document.getElementById('shop-name').value.trim();
+                                const res = await window.PrintXAuth.googleLogin(response.credential, { new_shop_name: shopName });
+                                if (res && res.success) {
+                                    showAlert('Google account linked! Redirecting...', false);
+                                    setTimeout(() => window.location.href = 'all-order-prints.html', 500);
+                                }
+                            } catch (err) {
+                                showAlert(err.message || 'Google sign-up failed.', true);
+                            }
+                        }
+                    });
+                    window.google.accounts.id.prompt();
+                } else {
+                    showAlert('Google OAuth is initializing. For immediate registration, use email and password above.', false);
+                }
+            });
+
+            // Form Submit handler
+            form.addEventListener('submit', async function (e) {
+                e.preventDefault();
+                alertBox.className = 'auth-alert';
+                alertBox.textContent = '';
+
+                const email = document.getElementById('reg-email').value.trim();
+                const password = passInput.value;
+                const rePassword = rePassInput.value;
+                let shopName = document.getElementById('shop-name').value.trim();
+
+                // Validation
+                if (!email) {
+                    showAlert('Please enter your email address.', true);
+                    return;
+                }
+                if (!password || password.length < 8) {
+                    showAlert('Password must be at least 8 characters long.', true);
+                    return;
+                }
+                if (password !== rePassword) {
+                    showAlert('Passwords do not match. Please re-write password carefully.', true);
+                    return;
+                }
+
+                // If shop name is not provided, derive default name from email
+                const username = email.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '_');
+                if (!shopName) {
+                    shopName = username.charAt(0).toUpperCase() + username.slice(1) + ' Print Station';
+                }
+
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<span>Registering shop & generating QR...</span>';
+
+                try {
+                    const payload = {
+                        username: username,
+                        email: email,
+                        password: password,
+                        new_shop_name: shopName
+                    };
+
+                    const res = await window.PrintXAuth.signup(payload);
+                    if (res && res.success) {
+                        showAlert('Shop registered successfully! Redirecting to orders dashboard...', false);
+                        setTimeout(() => {
+                            window.location.href = 'all-order-prints.html';
+                        }, 700);
+                    } else {
+                        showAlert(res.message || 'Registration failed.', true);
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = '<span>Register Shop & Generate QR Code</span>';
+                    }
+                } catch (err) {
+                    showAlert(err.message || 'Failed to register shop. Please try again.', true);
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<span>Register Shop & Generate QR Code</span>';
+                }
+            });
+        });
+    </script>
+</body>
+</html>

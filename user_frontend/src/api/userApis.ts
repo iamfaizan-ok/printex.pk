@@ -253,6 +253,10 @@ export const userApis = {
     formData.append('file', file);
     formData.append('original_name', file.name);
     formData.append('file_size', file.size.toString());
+    const savedShopId = typeof window !== 'undefined' ? localStorage.getItem('printx_shop_id') : null;
+    if (savedShopId) {
+      formData.append('shop_id', savedShopId);
+    }
 
     // If XMLHttpRequest is preferred for upload progress
     if (onProgress && typeof XMLHttpRequest !== 'undefined') {
@@ -310,10 +314,15 @@ export const userApis = {
    * 4. Submit Complete Print Order from Draft
    * POST /orders/create/
    */
-  async createOrder(orderData: ApiCreateOrderRequest): Promise<ApiOrderDetailsResponse> {
+  async createOrder(orderData: ApiCreateOrderRequest & { shop_id?: string }): Promise<ApiOrderDetailsResponse> {
+    const savedShopId = typeof window !== 'undefined' ? localStorage.getItem('printx_shop_id') : null;
+    const payload = {
+      ...orderData,
+      ...(savedShopId ? { shop_id: savedShopId } : {}),
+    };
     return request<ApiOrderDetailsResponse>('/orders/create/', {
       method: 'POST',
-      body: JSON.stringify(orderData),
+      body: JSON.stringify(payload),
     });
   },
 

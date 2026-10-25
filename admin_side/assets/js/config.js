@@ -7,20 +7,25 @@
     'use strict';
 
     const origin = window.location.origin;
-    const isLocalhost = origin.includes('localhost') || origin.includes('127.0.0.1');
 
     window.PRINTX_CONFIG = Object.freeze({
-        // API Base URL - always connects to Django backend on port 8000 if running locally
-        API_BASE_URL: isLocalhost && !origin.includes(':8000') 
-            ? 'http://localhost:8000/api/v1' 
-            : (origin.startsWith('http') ? origin + '/api/v1' : 'http://localhost:8000/api/v1'),
+        // API Base URL - always connects to same origin (works for both port 8000 and proxied port 3000)
+        API_BASE_URL: origin && origin.startsWith('http') ? origin + '/api/v1' : 'http://127.0.0.1:8000/api/v1',
 
         // Endpoints mapping
         ENDPOINTS: {
             LOGIN: '/admin/auth/login/',
+            SIGNUP: '/admin/auth/signup/',
             LOGOUT: '/admin/auth/logout/',
             ME: '/admin/auth/me/',
+            PASSWORD_RESET: '/admin/auth/password-reset/',
+            PASSWORD_RESET_CONFIRM: '/admin/auth/password-reset-confirm/',
+            GOOGLE_AUTH: '/admin/auth/google/',
+            MY_SHOP: '/admin/my-shop/',
+            SHOPS: '/shops/',
+            SHOP_QR: (id) => `/shops/${encodeURIComponent(id)}/qr/`,
             PRINT_JOBS: '/admin/print-jobs/',
+            CLEAR_ALL: '/admin/print-jobs/clear-all/',
             JOB_DETAIL: (id) => `/admin/print-jobs/${encodeURIComponent(id)}/`,
             JOB_BLOCK: (id) => `/admin/print-jobs/${encodeURIComponent(id)}/block/`,
             JOB_UNBLOCK: (id) => `/admin/print-jobs/${encodeURIComponent(id)}/unblock/`,

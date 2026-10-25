@@ -7,7 +7,6 @@
 
     const config = window.PRINTX_CONFIG;
     const api = window.PrintXApi;
-    const notify = window.PrintXNotifications;
 
     async function checkSession() {
         try {
@@ -78,9 +77,62 @@
         }
     }
 
+    async function signup(data) {
+        try {
+            const res = await api.post(config.ENDPOINTS.SIGNUP, data);
+            if (res && res.success) {
+                if (res.data) {
+                    localStorage.setItem(config.STORAGE_KEYS.ADMIN_USER, JSON.stringify(res.data));
+                }
+                if (res.csrfToken) {
+                    localStorage.setItem(config.STORAGE_KEYS.CSRF_TOKEN, res.csrfToken);
+                }
+                return res;
+            }
+            throw new Error(res.message || 'Signup failed.');
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    async function forgotPassword(email) {
+        return api.post(config.ENDPOINTS.PASSWORD_RESET, { email });
+    }
+
+    async function resetPassword(uid, token, new_password) {
+        return api.post(config.ENDPOINTS.PASSWORD_RESET_CONFIRM, { uid, token, new_password });
+    }
+
+    async function googleLogin(credential, extraData = {}) {
+        try {
+            const res = await api.post(config.ENDPOINTS.GOOGLE_AUTH, { credential, ...extraData });
+            if (res && res.success) {
+                if (res.data) {
+                    localStorage.setItem(config.STORAGE_KEYS.ADMIN_USER, JSON.stringify(res.data));
+                }
+                if (res.csrfToken) {
+                    localStorage.setItem(config.STORAGE_KEYS.CSRF_TOKEN, res.csrfToken);
+                }
+                return res;
+            }
+            throw new Error(res.message || 'Google sign-in failed.');
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    async function getMyShop() {
+        return api.get(config.ENDPOINTS.MY_SHOP);
+    }
+
     window.PrintXAuth = Object.freeze({
         login,
+        signup,
         logout,
+        forgotPassword,
+        resetPassword,
+        googleLogin,
+        getMyShop,
         checkSession,
         requireAuth,
         redirectIfAuthenticated,

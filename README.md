@@ -46,9 +46,9 @@ Or run individual services:
 | Service | Local URL | Notes / Credentials |
 |---|---|---|
 | **Customer Web Portal** | [http://localhost:3000](http://localhost:3000) | Vite + React frontend |
-| **Admin Operations Portal** | [http://localhost:8000/admin-panel/login.html](http://localhost:8000/admin-panel/login.html) | `admin` / `admin123` |
+| **Admin Operations Portal** | [http://localhost:8000/admin-panel/login.html](http://localhost:8000/admin-panel/login.html) | Secure Staff Sign In & Shop Onboarding |
 | **Interactive API Docs (Swagger)** | [http://localhost:8000/api/docs/](http://localhost:8000/api/docs/) | OpenAPI schema & test UI |
-| **Django Admin Site** | [http://localhost:8000/admin/](http://localhost:8000/admin/) | `admin` / `admin123` |
+| **Django Admin Site** | [http://localhost:8000/admin/](http://localhost:8000/admin/) | Protected Superuser Console |
 | **API Health Check** | [http://localhost:8000/api/v1/health/](http://localhost:8000/api/v1/health/) | JSON health status |
 
 ---

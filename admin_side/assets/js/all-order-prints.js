@@ -9,8 +9,17 @@
     const config = window.PRINTX_CONFIG;
     const api = window.PrintXApi;
     const auth = window.PrintXAuth;
-    const notify = window.PrintXNotifications;
     const actions = window.PrintXOrderActions;
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
 
     // State
     let currentTab = 'all';
@@ -23,7 +32,6 @@
 
     // DOM Elements
     let tableBody = null;
-    let totalCountBadge = null;
     let paginationContainer = null;
     let searchInput = null;
     let refreshBtn = null;
@@ -38,8 +46,115 @@
             adminNameEl.textContent = user.username || user.email;
         }
 
+        const shopDisplayEl = document.getElementById('admin-shop-display');
+        if (shopDisplayEl) {
+            if (user.shop && user.shop.name) {
+                shopDisplayEl.textContent = `${user.shop.name} (${user.shop.shop_id})`;
+            } else if (user.is_superuser) {
+                shopDisplayEl.textContent = 'Global Admin (All Shops)';
+            } else {
+                shopDisplayEl.textContent = 'Print Shop Operator';
+            }
+        }
+
+        // Shop QR Code Modal Handlers
+        const qrModal = document.getElementById('shop-qr-modal-overlay');
+        const qrModalBtn = document.getElementById('shop-qr-modal-btn');
+        const qrCloseBtn = document.getElementById('shop-qr-close-btn');
+        const printQrBtn = document.getElementById('btn-print-qr-code');
+        const copyLinkBtn = document.getElementById('btn-copy-shop-link');
+
+        let currentShopInfo = user.shop || null;
+
+        if (qrModalBtn) {
+            qrModalBtn.addEventListener('click', async () => {
+                try {
+                    const res = await auth.getMyShop();
+                    if (res && res.success && res.data) {
+                        currentShopInfo = res.data;
+                    }
+                } catch (e) {
+                    console.warn('Could not fetch latest shop info', e);
+                }
+
+                if (currentShopInfo) {
+                    const shopNameEl = document.getElementById('modal-shop-name');
+                    const shopIdBadge = document.getElementById('modal-shop-id-badge');
+                    const qrImg = document.getElementById('shop-qr-img');
+                    const customerUrlEl = document.getElementById('modal-customer-url');
+
+                    if (shopNameEl) shopNameEl.textContent = currentShopInfo.name;
+                    if (shopIdBadge) shopIdBadge.textContent = currentShopInfo.shop_id;
+                    if (qrImg) qrImg.src = config.API_BASE_URL + `/shops/${encodeURIComponent(currentShopInfo.shop_id)}/qr/`;
+                    const custUrl = currentShopInfo.customer_url || `${window.location.origin}/?shop=${currentShopInfo.shop_id}`;
+                    if (customerUrlEl) customerUrlEl.textContent = custUrl;
+
+                    qrModal.style.display = 'flex';
+                }
+            });
+        }
+
+        if (qrCloseBtn) {
+            qrCloseBtn.addEventListener('click', () => {
+                qrModal.style.display = 'none';
+            });
+        }
+
+        if (printQrBtn) {
+            printQrBtn.addEventListener('click', () => {
+                const qrImgSrc = document.getElementById('shop-qr-img').src;
+                const shopName = document.getElementById('modal-shop-name').textContent;
+                const shopId = document.getElementById('modal-shop-id-badge').textContent;
+                const customerUrl = document.getElementById('modal-customer-url').textContent;
+
+                const printWindow = window.open('', '_blank', 'width=600,height=700');
+                printWindow.document.write(`
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <title>Countertop QR - ${shopName}</title>
+                        <style>
+                            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; text-align: center; padding: 40px; color: #111; }
+                            .card { border: 2px dashed #2563eb; border-radius: 16px; padding: 30px; display: inline-block; max-width: 380px; }
+                            h1 { margin: 0 0 8px 0; font-size: 24px; color: #1e3a8a; }
+                            .tagline { color: #64748b; font-size: 14px; margin-bottom: 20px; }
+                            img { width: 220px; height: 220px; margin: 0 auto; display: block; }
+                            .instructions { margin-top: 18px; font-size: 15px; font-weight: 600; color: #0f172a; }
+                            .subtext { margin-top: 8px; font-size: 12px; color: #64748b; word-break: break-all; }
+                            .badge { background: #e0f2fe; color: #0369a1; padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; display: inline-block; margin-top: 14px; }
+                        </style>
+                    </head>
+                    <body>
+                        <div class="card">
+                            <h1>PrintX Counter</h1>
+                            <div class="tagline">Scan &amp; Print Documents Instantly</div>
+                            <img src="${qrImgSrc}" alt="QR Code" />
+                            <div class="instructions">Scan with phone camera to send prints directly here</div>
+                            <div class="badge">${shopName} &bull; ${shopId}</div>
+                            <div class="subtext">${customerUrl}</div>
+                        </div>
+                        <script>
+                            window.onload = function() { window.print(); };
+                        <\/script>
+                    </body>
+                    </html>
+                `);
+                printWindow.document.close();
+            });
+        }
+
+        if (copyLinkBtn) {
+            copyLinkBtn.addEventListener('click', () => {
+                const url = document.getElementById('modal-customer-url').textContent;
+                navigator.clipboard.writeText(url).then(() => {
+                    if (window.PrintXNotify) {
+                        window.PrintXNotify.success('Shop URL copied to clipboard!');
+                    }
+                });
+            });
+        }
+
         tableBody = document.getElementById('orders-table-body');
-        totalCountBadge = document.getElementById('total-orders-count');
         paginationContainer = document.getElementById('pagination-controls');
         searchInput = document.getElementById('order-search-input');
         refreshBtn = document.getElementById('manual-refresh-btn');
@@ -81,6 +196,16 @@
             });
         }
 
+        const clearAllBtn = document.getElementById('clear-all-orders-btn');
+        if (clearAllBtn) {
+            clearAllBtn.addEventListener('click', () => {
+                actions.handleClearAllOrders(clearAllBtn, () => {
+                    currentPage = 1;
+                    fetchOrders(true);
+                });
+            });
+        }
+
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'visible') {
                 startPolling();
@@ -92,6 +217,11 @@
 
         await fetchOrders(true);
         startPolling();
+
+        // Automatic 30-minute dashboard check & refresh (without requiring manual page refresh)
+        setInterval(() => {
+            fetchOrders(false);
+        }, 30 * 60 * 1000);
     }
 
     function startPolling() {
@@ -179,37 +309,23 @@
     // Set to keep track of open user group accordions across polling cycles
     const expandedGroupKeys = new Set();
 
-    function groupOrdersByUser(ordersList) {
-        const map = new Map();
-        ordersList.forEach((order) => {
-            // Grouping priority:
-            // 1. Explicit Batch ID in notes (e.g. "Batch: BATCH-XXXXX")
-            const batchMatch = (order.notes || '').match(/Batch:\s*([A-Za-z0-9_-]+)/i);
-            let key;
-            if (batchMatch && batchMatch[1]) {
-                key = `batch_${batchMatch[1]}`;
-            } else if (order.customer_phone && order.customer_phone.trim() !== '0300-0000000') {
-                // Group by customer phone and creation hour
-                const hourBlock = order.created_at ? order.created_at.substring(0, 13) : 'now';
-                key = `phone_${order.customer_phone.trim()}_${hourBlock}`;
-            } else if (order.customer_name && order.customer_name !== 'Customer' && order.customer_name !== 'Online Customer') {
-                const hourBlock = order.created_at ? order.created_at.substring(0, 13) : 'now';
-                key = `cust_${order.customer_name.trim()}_${hourBlock}`;
-            } else {
-                key = `order_${order.id}`;
-            }
+    function formatOrderId(num) {
+        if (!num) return 'ORD id 101';
+        const str = String(num).trim();
+        if (str.startsWith('ORD id')) return str;
+        return `ORD id ${str}`;
+    }
 
-            if (!map.has(key)) {
-                map.set(key, {
-                    key,
-                    customerName: order.customer_name || 'Customer',
-                    customerPhone: order.customer_phone || '',
-                    items: [],
-                });
-            }
-            map.get(key).items.push(order);
-        });
-        return Array.from(map.values());
+    function formatDateTime(isoStr) {
+        if (!isoStr) return '';
+        try {
+            const d = new Date(isoStr);
+            const timeStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const dateStr = d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+            return `${dateStr}, ${timeStr}`;
+        } catch {
+            return String(isoStr).substring(0, 16);
+        }
     }
 
     function createOrderActionButtons(order) {
@@ -298,7 +414,7 @@
         return btnGroup;
     }
 
-    function createSingleOrderRow(order) {
+    function createSingleFileOrderRow(order) {
         const row = document.createElement('tr');
         row.id = `order-row-${order.id}`;
         row.className = 'order-row';
@@ -314,17 +430,21 @@
             row.classList.add('order-blocked');
         }
 
-        // 1. Filename Cell
+        const file = order.files[0];
+
+        // 1. Filename Cell with Customer and View/Download actions
         const fileCell = document.createElement('td');
         fileCell.className = 'col-filename';
+
         const fileSpan = document.createElement('span');
         fileSpan.className = 'document-filename';
-        fileSpan.title = order.original_filename;
-        fileSpan.textContent = order.original_filename;
+        fileSpan.title = file.original_filename || '';
+        fileSpan.innerHTML = `&#128196; ${escapeHtml(file.original_filename || 'document.pdf')}`;
 
         const metaSpan = document.createElement('div');
         metaSpan.className = 'document-meta';
-        metaSpan.textContent = `${order.page_count || 1}p • ${order.copies || 1} copy • ${(order.colour_mode || 'bw').toUpperCase()}${order.customer_name ? ` • 👤 ${order.customer_name}` : ''}`;
+        metaSpan.textContent = `${file.page_count || 1}p • ${file.copies || 1} copy • ${(file.colour_mode || 'bw').toUpperCase()} • ${file.paper_size || 'A4'}${order.customer_name ? ` • 👤 ${order.customer_name}` : ''}${order.customer_phone ? ` (📞 ${order.customer_phone})` : ''}`;
+
         fileCell.appendChild(fileSpan);
         fileCell.appendChild(metaSpan);
 
@@ -333,10 +453,10 @@
         idCell.className = 'col-order-id';
         const idSpan = document.createElement('span');
         idSpan.className = 'order-id-badge';
-        idSpan.textContent = order.job_number;
+        idSpan.textContent = formatOrderId(order.order_number || order.job_number);
         idCell.appendChild(idSpan);
 
-        // 3. Print / Approval Status Cell
+        // 3. Print / Approval Status Cell with Date
         const statusCell = document.createElement('td');
         statusCell.className = 'col-status';
         const statusBadge = document.createElement('span');
@@ -352,6 +472,14 @@
         }
         statusCell.appendChild(statusBadge);
 
+        if (order.created_at) {
+            const timeEl = document.createElement('div');
+            timeEl.className = 'document-meta';
+            timeEl.style.marginTop = '4px';
+            timeEl.textContent = `🕒 ${formatDateTime(order.created_at)}`;
+            statusCell.appendChild(timeEl);
+        }
+
         // 4. Payment Status Cell
         const paymentCell = document.createElement('td');
         paymentCell.className = 'col-payment';
@@ -360,10 +488,43 @@
         paymentBadge.textContent = formatPaymentLabel(order.payment_status);
         paymentCell.appendChild(paymentBadge);
 
+        if (order.total_amount) {
+            const priceEl = document.createElement('div');
+            priceEl.className = 'document-meta';
+            priceEl.style.marginTop = '4px';
+            priceEl.style.fontWeight = '600';
+            priceEl.textContent = `${order.currency || 'PKR'} ${order.total_amount}`;
+            paymentCell.appendChild(priceEl);
+        }
+
         // 5. Actions Cell
         const actionCell = document.createElement('td');
         actionCell.className = 'col-actions';
-        actionCell.appendChild(createOrderActionButtons(order));
+        const btnGroup = document.createElement('div');
+        btnGroup.className = 'action-btn-group';
+
+        const viewLink = document.createElement('a');
+        viewLink.href = encodeURI(file.view_url || `/api/v1/admin/print-jobs/${file.id}/download/?inline=1`);
+        viewLink.target = '_blank';
+        viewLink.rel = 'noopener noreferrer';
+        viewLink.className = 'btn btn-outline-info btn-sm';
+        viewLink.title = `View ${file.original_filename || 'PDF'}`;
+        viewLink.innerHTML = '&#128065; View';
+
+        const dlLink = document.createElement('a');
+        dlLink.href = encodeURI(file.download_url || `/api/v1/admin/print-jobs/${file.id}/download/`);
+        dlLink.className = 'btn btn-outline-secondary btn-sm';
+        dlLink.title = `Download ${file.original_filename || 'PDF'}`;
+        dlLink.setAttribute('download', file.original_filename || 'document.pdf');
+        dlLink.innerHTML = '&#11015; Download';
+
+        btnGroup.appendChild(viewLink);
+        btnGroup.appendChild(dlLink);
+
+        const orderActions = createOrderActionButtons(order);
+        Array.from(orderActions.children).forEach((btn) => btnGroup.appendChild(btn));
+
+        actionCell.appendChild(btnGroup);
 
         row.appendChild(fileCell);
         row.appendChild(idCell);
@@ -374,23 +535,20 @@
         return row;
     }
 
-    function createGroupHeaderRow(group, isExpanded, toggleCallback) {
+    function createMultiFileOrderHeaderRow(order, isExpanded, toggleCallback) {
         const row = document.createElement('tr');
-        row.id = `group-header-${group.key}`;
+        row.id = `group-header-${order.id}`;
         row.className = `order-row order-group-header-row ${isExpanded ? 'group-expanded' : ''}`;
 
-        const allItems = group.items;
-        const anyCashPending = allItems.some((it) => it.payment_status === 'cash_pending' || it.is_cash_pending);
-        const allBlocked = allItems.every((it) => it.approval_status === 'blocked');
-        const allCompleted = allItems.every((it) => it.status === 'completed' || it.status === 'submitted_to_printer');
-        const anyPrinting = allItems.some((it) => it.status === 'submitting_to_printer' || it.status === 'downloading' || it.status === 'ready_to_print');
+        const isCashPending = order.payment_status === 'cash_pending' || order.is_cash_pending;
+        const isBlocked = order.approval_status === 'blocked';
 
-        if (anyCashPending) {
+        if (isCashPending) {
             row.classList.add('order-row-cash-pending');
         }
-
-        const totalImpressions = allItems.reduce((acc, it) => acc + (it.total_impressions || 1), 0);
-        const totalSheets = allItems.reduce((acc, it) => acc + (it.estimated_sheets || 1), 0);
+        if (isBlocked) {
+            row.classList.add('order-blocked');
+        }
 
         // 1. Filename Cell with See More Arrow Button
         const fileCell = document.createElement('td');
@@ -403,10 +561,10 @@
         const toggleBtn = document.createElement('button');
         toggleBtn.type = 'button';
         toggleBtn.className = `btn btn-see-more-toggle ${isExpanded ? 'is-open' : ''}`;
-        toggleBtn.title = isExpanded ? 'Hide documents list' : `See more (${allItems.length} PDFs uploaded)`;
+        toggleBtn.title = isExpanded ? 'Hide documents list' : `See more (${order.files.length} PDFs uploaded)`;
         toggleBtn.innerHTML = `
             <span class="see-more-arrow">${isExpanded ? '&#9650;' : '&#9660;'}</span>
-            <span class="see-more-label">${isExpanded ? 'Hide' : 'See More'} (${allItems.length} PDFs)</span>
+            <span class="see-more-label">${isExpanded ? 'Hide' : 'See More'} (${order.files.length} PDFs)</span>
         `;
         toggleBtn.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -415,14 +573,14 @@
 
         const customerBadge = document.createElement('span');
         customerBadge.className = 'customer-badge';
-        customerBadge.innerHTML = `&#128100; <strong>${group.customerName}</strong>${group.customerPhone ? ` • ${group.customerPhone}` : ''}`;
+        customerBadge.innerHTML = `&#128100; <strong>${escapeHtml(order.customer_name || 'Customer')}</strong>${order.customer_phone ? ` • ${escapeHtml(order.customer_phone)}` : ''}`;
 
         wrapper.appendChild(toggleBtn);
         wrapper.appendChild(customerBadge);
 
         const summaryDesc = document.createElement('div');
         summaryDesc.className = 'group-summary-meta';
-        summaryDesc.textContent = `${allItems.length} documents • Total ${totalImpressions} impressions • ~${totalSheets} sheets`;
+        summaryDesc.textContent = `${order.files.length} documents • Total ${order.total_impressions} impressions • ~${order.estimated_sheets} sheets`;
 
         fileCell.appendChild(wrapper);
         fileCell.appendChild(summaryDesc);
@@ -432,10 +590,10 @@
         idCell.className = 'col-order-id';
         const idSpan = document.createElement('span');
         idSpan.className = 'order-id-badge group-id-badge';
-        idSpan.textContent = allItems[0].job_number;
+        idSpan.textContent = formatOrderId(order.order_number || order.job_number);
         const moreCountBadge = document.createElement('span');
         moreCountBadge.className = 'badge-more-count';
-        moreCountBadge.textContent = `+${allItems.length - 1} more`;
+        moreCountBadge.textContent = `${order.files.length} PDFs`;
         idCell.appendChild(idSpan);
         idCell.appendChild(moreCountBadge);
 
@@ -443,33 +601,45 @@
         const statusCell = document.createElement('td');
         statusCell.className = 'col-status';
         const statusBadge = document.createElement('span');
-        if (allBlocked) {
+        if (isBlocked) {
             statusBadge.className = 'badge badge-blocked';
-            statusBadge.textContent = 'All Blocked';
-        } else if (allCompleted) {
+            statusBadge.textContent = 'Blocked';
+        } else if (order.status === 'completed') {
             statusBadge.className = 'badge badge-completed';
-            statusBadge.textContent = `All Completed (${allItems.length})`;
-        } else if (anyPrinting) {
+            statusBadge.textContent = `Completed (${order.files.length})`;
+        } else if (order.status === 'submitting_to_printer' || order.status === 'submitted_to_printer') {
             statusBadge.className = 'badge badge-printing';
             statusBadge.textContent = 'Printing In Progress';
         } else {
             statusBadge.className = 'badge badge-queued';
-            statusBadge.textContent = `Queued (${allItems.length} PDFs)`;
+            statusBadge.textContent = `Queued (${order.files.length} PDFs)`;
         }
         statusCell.appendChild(statusBadge);
+
+        if (order.created_at) {
+            const timeEl = document.createElement('div');
+            timeEl.className = 'document-meta';
+            timeEl.style.marginTop = '4px';
+            timeEl.textContent = `🕒 ${formatDateTime(order.created_at)}`;
+            statusCell.appendChild(timeEl);
+        }
 
         // 4. Payment Cell
         const paymentCell = document.createElement('td');
         paymentCell.className = 'col-payment';
         const paymentBadge = document.createElement('span');
-        if (anyCashPending) {
-            paymentBadge.className = 'badge badge-pay-cash_pending';
-            paymentBadge.textContent = 'Cash Pending';
-        } else {
-            paymentBadge.className = `badge badge-pay-${allItems[0].payment_status}`;
-            paymentBadge.textContent = formatPaymentLabel(allItems[0].payment_status);
-        }
+        paymentBadge.className = `badge badge-pay-${order.payment_status}`;
+        paymentBadge.textContent = formatPaymentLabel(order.payment_status);
         paymentCell.appendChild(paymentBadge);
+
+        if (order.total_amount) {
+            const priceEl = document.createElement('div');
+            priceEl.className = 'document-meta';
+            priceEl.style.marginTop = '4px';
+            priceEl.style.fontWeight = '600';
+            priceEl.textContent = `${order.currency || 'PKR'} ${order.total_amount}`;
+            paymentCell.appendChild(priceEl);
+        }
 
         // 5. Actions Cell
         const actionCell = document.createElement('td');
@@ -487,6 +657,9 @@
         });
         btnGroup.appendChild(quickToggle);
 
+        const orderActions = createOrderActionButtons(order);
+        Array.from(orderActions.children).forEach((btn) => btnGroup.appendChild(btn));
+
         actionCell.appendChild(btnGroup);
 
         row.appendChild(fileCell);
@@ -498,23 +671,12 @@
         return row;
     }
 
-    function createSubOrderRow(order, index, totalInGroup) {
+    function createSubFileRow(order, file, index, totalFiles) {
         const row = document.createElement('tr');
-        row.id = `order-row-${order.id}`;
+        row.id = `sub-file-row-${file.id}`;
         row.className = 'order-row order-sub-row animate-fade-in';
 
-        const isCashPending = order.payment_status === 'cash_pending' || order.is_cash_pending;
-        const isBlocked = order.approval_status === 'blocked';
-
-        if (isCashPending) {
-            row.classList.add('order-row-cash-pending');
-        }
-        row.classList.add(`order-status-${order.status}`);
-        if (isBlocked) {
-            row.classList.add('order-blocked');
-        }
-
-        // 1. Filename Cell with tree indicator
+        // 1. Filename Cell with tree indicator and View/Download buttons
         const fileCell = document.createElement('td');
         fileCell.className = 'col-filename col-sub-filename';
 
@@ -531,8 +693,8 @@
 
         const fileSpan = document.createElement('span');
         fileSpan.className = 'document-filename sub-document-filename';
-        fileSpan.title = order.original_filename;
-        fileSpan.textContent = order.original_filename;
+        fileSpan.title = file.original_filename;
+        fileSpan.textContent = file.original_filename;
 
         treeBox.appendChild(branchIcon);
         treeBox.appendChild(docIcon);
@@ -540,47 +702,47 @@
 
         const metaSpan = document.createElement('div');
         metaSpan.className = 'document-meta sub-document-meta';
-        metaSpan.textContent = `PDF #${index + 1} of ${totalInGroup} • ${order.page_count || 1}p • ${order.copies || 1} copy • ${(order.colour_mode || 'bw').toUpperCase()} • ${order.paper_size || 'A4'}`;
+        metaSpan.textContent = `PDF #${index + 1} of ${totalFiles} • ${file.page_count || 1}p • ${file.copies || 1} copy • ${(file.colour_mode || 'bw').toUpperCase()} • ${file.paper_size || 'A4'}`;
 
         fileCell.appendChild(treeBox);
         fileCell.appendChild(metaSpan);
 
-        // 2. Order ID Cell
+        // 2. Order ID Cell (clean / empty; order ID is displayed in header row above)
         const idCell = document.createElement('td');
-        idCell.className = 'col-order-id';
-        const idSpan = document.createElement('span');
-        idSpan.className = 'order-id-badge';
-        idSpan.textContent = order.job_number;
-        idCell.appendChild(idSpan);
+        idCell.className = 'col-order-id col-sub-empty';
 
-        // 3. Print / Approval Status Cell
+        // 3. Status Cell (clean / empty; queue status is displayed in header row above)
         const statusCell = document.createElement('td');
-        statusCell.className = 'col-status';
-        const statusBadge = document.createElement('span');
-        if (isBlocked) {
-            statusBadge.className = 'badge badge-blocked';
-            statusBadge.textContent = 'Blocked';
-        } else if (order.status === 'queued') {
-            statusBadge.className = 'badge badge-queued';
-            statusBadge.textContent = 'Pending Print';
-        } else {
-            statusBadge.className = `badge badge-${order.status}`;
-            statusBadge.textContent = formatStatusLabel(order.status);
-        }
-        statusCell.appendChild(statusBadge);
+        statusCell.className = 'col-status col-sub-empty';
 
-        // 4. Payment Status Cell
+        // 4. Payment Cell (clean / empty; payment status is displayed in header row above)
         const paymentCell = document.createElement('td');
-        paymentCell.className = 'col-payment';
-        const paymentBadge = document.createElement('span');
-        paymentBadge.className = `badge badge-pay-${order.payment_status}`;
-        paymentBadge.textContent = formatPaymentLabel(order.payment_status);
-        paymentCell.appendChild(paymentBadge);
+        paymentCell.className = 'col-payment col-sub-empty';
 
-        // 5. Actions Cell: "bake button use tarha har pdf ka samna nazar aya"
+        // 5. Actions Cell: Functional View and Download actions on the right side of the row
         const actionCell = document.createElement('td');
         actionCell.className = 'col-actions';
-        actionCell.appendChild(createOrderActionButtons(order));
+        const subActionGroup = document.createElement('div');
+        subActionGroup.className = 'action-btn-group';
+
+        const subViewLink = document.createElement('a');
+        subViewLink.href = encodeURI(file.view_url || `/api/v1/admin/print-jobs/${file.id}/download/?inline=1`);
+        subViewLink.target = '_blank';
+        subViewLink.rel = 'noopener noreferrer';
+        subViewLink.className = 'btn btn-outline-info btn-sm';
+        subViewLink.title = `View ${file.original_filename || 'PDF'}`;
+        subViewLink.innerHTML = '&#128065; View';
+
+        const subDlLink = document.createElement('a');
+        subDlLink.href = encodeURI(file.download_url || `/api/v1/admin/print-jobs/${file.id}/download/`);
+        subDlLink.className = 'btn btn-outline-secondary btn-sm';
+        subDlLink.title = `Download ${file.original_filename || 'PDF'}`;
+        subDlLink.setAttribute('download', file.original_filename || 'document.pdf');
+        subDlLink.innerHTML = '&#11015; Download';
+
+        subActionGroup.appendChild(subViewLink);
+        subActionGroup.appendChild(subDlLink);
+        actionCell.appendChild(subActionGroup);
 
         row.appendChild(fileCell);
         row.appendChild(idCell);
@@ -613,31 +775,44 @@
 
         tableBody.innerHTML = '';
 
-        const groups = groupOrdersByUser(orders);
+        orders.forEach((order) => {
+            const files = (order.files && order.files.length > 0)
+                ? order.files
+                : [{
+                    id: order.id,
+                    original_filename: order.original_filename || 'document.pdf',
+                    page_count: order.page_count || 1,
+                    copies: order.copies || 1,
+                    colour_mode: order.colour_mode || 'bw',
+                    paper_size: order.paper_size || 'A4',
+                    download_url: `/api/v1/admin/print-jobs/${order.id}/download/`,
+                    view_url: `/api/v1/admin/print-jobs/${order.id}/download/?inline=1`,
+                    file_available: true
+                }];
+            order.files = files;
 
-        groups.forEach((group) => {
-            if (group.items.length === 1) {
-                // User has only 1 PDF: render standard compact row
-                const singleRow = createSingleOrderRow(group.items[0]);
+            if (files.length === 1) {
+                // User has only 1 PDF: render single clean row with direct view and download buttons
+                const singleRow = createSingleFileOrderRow(order);
                 tableBody.appendChild(singleRow);
             } else {
-                // User has MORE than 1 PDF uploaded!
-                // Render group header with 'See More' arrow dropdown
-                const isExpanded = expandedGroupKeys.has(group.key);
-                const headerRow = createGroupHeaderRow(group, isExpanded, () => {
-                    if (expandedGroupKeys.has(group.key)) {
-                        expandedGroupKeys.delete(group.key);
+                // User has MORE than 1 PDF uploaded in this single order!
+                // Render order header with 'See More' arrow dropdown
+                const isExpanded = expandedGroupKeys.has(order.id);
+                const headerRow = createMultiFileOrderHeaderRow(order, isExpanded, () => {
+                    if (expandedGroupKeys.has(order.id)) {
+                        expandedGroupKeys.delete(order.id);
                     } else {
-                        expandedGroupKeys.add(group.key);
+                        expandedGroupKeys.add(order.id);
                     }
                     renderOrdersTable(orders);
                 });
                 tableBody.appendChild(headerRow);
 
-                // If expanded, render each PDF as a distinct sub-row with all action buttons in front of each PDF
+                // If expanded, render each PDF as a distinct sub-row with action buttons in front of each PDF
                 if (isExpanded) {
-                    group.items.forEach((item, idx) => {
-                        const subRow = createSubOrderRow(item, idx, group.items.length);
+                    files.forEach((fileItem, idx) => {
+                        const subRow = createSubFileRow(order, fileItem, idx, files.length);
                         tableBody.appendChild(subRow);
                     });
                 }

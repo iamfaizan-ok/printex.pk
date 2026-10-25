@@ -87,8 +87,13 @@ class PaymentVerifyView(APIView):
             if not job:
                 return Response({"success": False, "message": "Order not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        job.payment_status = 'paid'
-        job.save(update_fields=['payment_status', 'updated_at'])
+        if job.order:
+            job.order.payment_status = 'paid'
+            job.order.files.all().update(payment_status='paid')
+            job.order.save(update_fields=['payment_status', 'updated_at'])
+        else:
+            job.payment_status = 'paid'
+            job.save(update_fields=['payment_status', 'updated_at'])
 
         record_audit_event(
             event_type='payment_verified',

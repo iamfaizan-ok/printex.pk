@@ -174,11 +174,34 @@
         });
     }
 
+    function handleClearAllOrders(buttonElement, onCleared) {
+        showConfirmModal({
+            title: 'Clear All Orders and Data?',
+            message: 'WARNING: This will permanently remove ALL print jobs, customer data, and uploaded PDF documents from the server storage. This action cannot be undone.\n\nAre you sure you want to clear all data?',
+            confirmText: 'Yes, Clear All Data',
+            confirmClass: 'btn-danger',
+            onConfirm: () => {
+                const actionKey = 'clear_all_orders';
+                executeAction(
+                    actionKey,
+                    buttonElement,
+                    () => api.post(config.ENDPOINTS.CLEAR_ALL, {}),
+                    (data) => {
+                        if (typeof onCleared === 'function') {
+                            onCleared(data);
+                        }
+                    }
+                );
+            }
+        });
+    }
+
     window.PrintXOrderActions = Object.freeze({
         handleBlock,
         handleUnblock,
         handlePayOk,
         handleAuthorizePrint,
+        handleClearAllOrders,
         showConfirmModal,
     });
 })(window);

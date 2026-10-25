@@ -26,8 +26,15 @@ urlpatterns = [
     path('admin-panel/', admin_panel_view, {'path': 'login.html'}, name='admin-panel-root'),
     path('admin-panel/<path:path>', admin_panel_view, name='admin-panel-static'),
 
+    # Accounts & Admin Authentication APIs (Login, Logout, Register Shop)
+    path('api/v1/accounts/', include('apps.accounts.urls')),
+    path('api/v1/admin/auth/', include('apps.accounts.urls')),
+
     # Customer & Core Printing APIs
     path('api/v1/', include('apps.printing.urls')),
+
+    # Shops & Multi-Tenancy APIs
+    path('api/v1/shops/', include('apps.shops.urls')),
 
     # Payments API
     path('api/v1/payments/', include('apps.payments.urls')),
