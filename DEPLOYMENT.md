@@ -15,6 +15,7 @@ graph LR
     Admin([Print Shop Operator]) -->|HTTPS| Render[Render Web Service<br/>backend_all + admin_side<br/>Django + WhiteNoise]
     Vercel -->|REST API Requests| Render
     Render -->|PostgreSQL Protocol| DB[(PostgreSQL: printx_db / Neon)]
+also continue in admin and user base becouse admin and user are is dynamincly wirking
 ```
 
 ---
