@@ -4,6 +4,7 @@ This guide walks you through deploying **PrintX (printex.pk)** completely free u
 - **Frontend (`user_frontend`)**: Hosted on **[Vercel](https://vercel.com)** (Global Edge CDN, auto-SSL, instant builds).
 - **Backend (`backend_all` + `admin_side`)**: Hosted on **[Render](https://render.com)** (Free Linux Web Service with Python 3.12, Gunicorn, WhiteNoise).
 - **Database**: PostgreSQL on **[Neon.tech](https://neon.tech)** (free forever, 0.5 GB) or local/production PostgreSQL (`printx_db`).
+- postgre sql use for data base and manage all valuable things.
 
 ---
 
